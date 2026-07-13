@@ -1,0 +1,2545 @@
+<!--
+  HELIOS NEO v4 — PWA Dark Premium (disfarce: console de diagnostico)
+  ==================================================================
+  REDESIGN BASEADO EM: Robinhood (layering) + Linear (neutrals) + Revolut (semantic colors)
+
+  OBSERVACOES DO PADRAO:
+  - Fonte: Inter (via Google Fonts) — excecao justificada pelo upgrade visual
+    (o padrao Segoe UI fica como fallback). Numeros usam tabular-nums.
+  - Escala: 11/12/13/14/16/20/32px — weights 400/500/600/700 criam hierarquia
+  - Fundo em 4 camadas (zinc scale): #09090b → #18181b → #27272a → #3f3f46
+  - Accent colors VARIADOS (nao so verde):
+      verde=gain  vermelho=loss  azul=info/liquidez  laranja=manual
+      roxo=premium  ciano=imobilizado  cinza=neutro
+  - Bordas rgba(255,255,255,0.06) = layering sutil (nao preto puro)
+  - Icones SVG Lucide inline (nada de unicode)
+  - Densidade: padding reduzido, 6-8 itens por dobra
+
+  VIEWPORT MOBILE-FIRST, DESKTOP >=768px via @media
+-->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#09090b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Helios Neo">
+  <title>Helios Neo</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ==================== RESET + BASE ==================== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background: var(--bg-0);
+      color: var(--text-2);
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+      min-height: 100vh;
+      font-feature-settings: 'cv11', 'ss01';
+    }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+    input, select { font-family: inherit; outline: none; }
+    a { color: inherit; text-decoration: none; }
+    /* Numeros sempre tabular-nums (alinhamento vertical perfeito) */
+    .num, .valor, .v, .vl, .pct, .pc, .s, .mono { font-variant-numeric: tabular-nums; }
+    svg.ico { width: 1em; height: 1em; flex-shrink: 0; }
+
+    :root {
+      /* Zinc scale (neutrals) — layering real em 4 niveis */
+      --bg-0: #09090b;          /* base mais escura */
+      --bg-1: #131316;          /* cards */
+      --bg-2: #1c1c21;          /* elevated / hover */
+      --bg-3: #27272a;          /* input / separator */
+      --bg-4: #3f3f46;          /* borda forte */
+
+      /* Bordas (alpha sobre preto = layering real) */
+      --border: rgba(255,255,255,0.06);
+      --border-hi: rgba(255,255,255,0.10);
+      --border-accent: rgba(16,185,129,0.35);
+
+      /* Texto hierarquia */
+      --text-1: #fafafa;        /* titulo */
+      --text-2: #d4d4d8;        /* corpo */
+      --text-3: #a1a1aa;        /* labels */
+      --text-4: #71717a;        /* muted */
+      --text-5: #52525b;        /* dim */
+
+      /* Semantic colors (paleta premium variada) */
+      --green: #10b981;         /* gain */
+      --green-bg: rgba(16,185,129,0.12);
+      --green-glow: rgba(16,185,129,0.25);
+      --red: #ef4444;           /* loss */
+      --red-bg: rgba(239,68,68,0.12);
+      --blue: #3b82f6;          /* info / liquidez */
+      --blue-bg: rgba(59,130,246,0.12);
+      --amber: #f59e0b;         /* manual / warning */
+      --amber-bg: rgba(245,158,11,0.12);
+      --purple: #a855f7;        /* premium / destaque */
+      --purple-bg: rgba(168,85,247,0.12);
+      --cyan: #06b6d4;          /* imobilizado */
+      --cyan-bg: rgba(6,182,212,0.12);
+      --pink: #ec4899;
+      --pink-bg: rgba(236,72,153,0.12);
+
+      /* Raios */
+      --r-sm: 6px;
+      --r-md: 10px;
+      --r-lg: 14px;
+      --r-xl: 20px;
+    }
+
+    /* ==================== LOGIN ==================== */
+    #login-screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background:
+        radial-gradient(circle at 50% 30%, rgba(16,185,129,0.06) 0%, transparent 60%),
+        var(--bg-0);
+      padding: 20px; z-index: 200;
+    }
+    #login-screen .brand {
+      font-size: 26px; font-weight: 700; letter-spacing: 6px;
+      color: var(--text-1); margin-bottom: 8px;
+      text-shadow: 0 0 30px var(--green-glow);
+    }
+    #login-screen .sub {
+      font-size: 11px; color: var(--text-4); letter-spacing: 3px;
+      text-transform: uppercase; margin-bottom: 48px; font-weight: 500;
+    }
+    #login-screen .pin-input {
+      background: var(--bg-1); border: 1px solid var(--border);
+      color: var(--green); font-size: 28px; font-weight: 700;
+      text-align: center; letter-spacing: 14px; padding: 18px 20px;
+      border-radius: var(--r-lg); width: 240px;
+      transition: all 0.2s; font-variant-numeric: tabular-nums;
+    }
+    #login-screen .pin-input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 4px var(--green-glow);
+    }
+    #login-screen .pin-input.shake { animation: shake 0.3s; border-color: var(--red); }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-8px); }
+      75% { transform: translateX(8px); }
+    }
+    #login-screen .error {
+      color: var(--red); font-size: 12px; margin-top: 16px;
+      min-height: 14px; font-weight: 500;
+    }
+
+    /* ==================== HEADER ==================== */
+    header.topbar {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(9,9,11,0.85); backdrop-filter: blur(16px) saturate(1.4);
+      -webkit-backdrop-filter: blur(16px) saturate(1.4);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px;
+    }
+    header.topbar .brand {
+      font-size: 14px; font-weight: 700; letter-spacing: 2.5px;
+      color: var(--text-1);
+      display: flex; align-items: center; gap: 9px;
+    }
+    header.topbar .brand .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green);
+      animation: pulse 2.5s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+    header.topbar .actions { display: flex; gap: 6px; }
+    header.topbar button.icon-btn {
+      background: var(--bg-1); color: var(--text-2);
+      width: 36px; height: 36px; border-radius: var(--r-md);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    header.topbar button.icon-btn:active {
+      background: var(--bg-2); transform: scale(0.94);
+    }
+    header.topbar button.icon-btn svg { width: 16px; height: 16px; }
+    header.topbar button.loading { opacity: 0.5; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ==================== MAIN + NAV ==================== */
+    main { padding: 14px 14px 90px 14px; max-width: 1100px; margin: 0 auto; }
+    .view { display: none; animation: fadeIn 0.25s; }
+    .view.on { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    /* Bottom tabs */
+    nav.bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(9,9,11,0.92); backdrop-filter: blur(20px) saturate(1.4);
+      -webkit-backdrop-filter: blur(20px) saturate(1.4);
+      border-top: 1px solid var(--border);
+      display: flex; padding: 8px 6px;
+      z-index: 40;
+      padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    }
+    nav.bottom-nav button {
+      flex: 1; padding: 8px 4px; border-radius: var(--r-md);
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      color: var(--text-4); font-size: 10px; font-weight: 500;
+      letter-spacing: 0.2px;
+      transition: all 0.15s;
+    }
+    nav.bottom-nav button.active { color: var(--text-1); }
+    nav.bottom-nav button.active svg { stroke: var(--green); }
+    nav.bottom-nav button svg { width: 20px; height: 20px; stroke-width: 2; }
+
+    /* ==================== SIDEBAR (DESKTOP/TABLET PAISAGEM >=1024px) ====================
+       PASSO 1 da adaptacao real (2026-07-13): acima de 1024px a nav.bottom-nav
+       (rodape estilo celular) vira uma coluna fixa a esquerda, ocupando a altura
+       toda abaixo do header. Mesmo HTML/JS (data-nav), so muda o CSS + o padding
+       do <main> pra abrir espaco. Tablet retrato (768-1023px) continua com o
+       rodape (regras @media 768 ja existentes). Nao mexer nesta regra sem
+       revisar o breakpoint junto — 1024 cobre iPad paisagem pra cima. */
+    @media (min-width: 1024px) {
+      nav.bottom-nav {
+        position: fixed; top: 68px; bottom: 0; left: 0; right: auto;
+        width: 220px; flex-direction: column; align-items: stretch;
+        justify-content: flex-start; gap: 4px;
+        padding: 16px 12px; border-top: none;
+        border-right: 1px solid var(--border);
+        background: var(--bg-0);
+        backdrop-filter: none; -webkit-backdrop-filter: none;
+      }
+      nav.bottom-nav button {
+        flex: none; flex-direction: row; justify-content: flex-start;
+        gap: 12px; padding: 11px 14px; font-size: 13px;
+        cursor: pointer;
+      }
+      nav.bottom-nav button:hover { background: var(--bg-1); color: var(--text-2); }
+      nav.bottom-nav button.active { background: var(--bg-2); }
+      nav.bottom-nav button svg { width: 18px; height: 18px; }
+      main { margin-left: 220px; max-width: 1280px; }
+
+      /* PASSO 2: view Home em grid de 2 colunas — hero+resumo numa coluna,
+         alocacao (donut + categoria) na outra, Insights e Top Movers
+         ocupando a largura toda embaixo. Ordem dos filhos no HTML nao muda,
+         so a posicao visual via grid-column/grid-row. Se algum dia mexer na
+         ordem dos <div class="section"> dentro de data-view="home", revisar
+         os nth-child aqui junto. */
+      main .view[data-view="home"] {
+        display: grid; grid-template-columns: 1fr 1fr;
+        gap: 20px 24px; align-items: start;
+      }
+      main .view[data-view="home"] > *:nth-child(1) { grid-column: 1; grid-row: 1; }
+      main .view[data-view="home"] > *:nth-child(2) { grid-column: 1; grid-row: 2; }
+      main .view[data-view="home"] > *:nth-child(3) { grid-column: 2; grid-row: 1; }
+      main .view[data-view="home"] > *:nth-child(4) { grid-column: 2; grid-row: 2; }
+      main .view[data-view="home"] > *:nth-child(5) { grid-column: 1 / -1; grid-row: 3; }
+      main .view[data-view="home"] > *:nth-child(6) { grid-column: 1 / -1; grid-row: 4; }
+
+      /* PASSO 3: Ativos em modo Cards ganham mais colunas com a tela larga;
+         Lista/Hierarquia ficam como estao (leitura em coluna unica tambem
+         funciona bem pra extrato financeiro, e evita reescrever o JS de
+         agrupamento). Dividas (passivos-list) ganha mesma largura do main. */
+      .compact-grid { grid-template-columns: repeat(5, 1fr); }
+      .insights-grid { grid-template-columns: repeat(4, 1fr); }
+
+      /* PASSO 4: Historico com mais respiro vertical (grafico maior, mais
+         facil de ler numa tela grande). Alvo em 2 colunas — cada categoria
+         vira um card menor lado a lado, igual um formulario de verdade. */
+      .line-chart-box { padding: 20px; }
+      .line-chart-box svg { max-height: 320px; }
+      #alvo-list {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px;
+        align-items: start;
+      }
+      .target-row { margin-bottom: 0; }
+
+      /* PASSO 5: acabamento pra mouse (hover sutil), so quando o dispositivo
+         realmente tem cursor fino — evita "hover preso" em tablet touch que
+         as vezes tambem cai nesse breakpoint. */
+      @media (hover: hover) {
+        .ativo-item:hover { background: rgba(255,255,255,0.03); }
+        .aloc-row:hover { background: rgba(255,255,255,0.03); }
+        .card:hover { border-color: rgba(255,255,255,0.1); }
+      }
+    }
+
+    /* ==================== COMPONENTS BASE ==================== */
+    .section { margin-bottom: 20px; }
+    .section-title {
+      font-size: 11px; color: var(--text-4); letter-spacing: 1.5px;
+      text-transform: uppercase; font-weight: 600;
+      margin-bottom: 10px; padding: 0 2px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .section-title .link {
+      color: var(--text-2); font-size: 11px; letter-spacing: 0.5px;
+      text-transform: none; font-weight: 500;
+      display: inline-flex; align-items: center; gap: 3px;
+    }
+    .section-title .link svg { width: 12px; height: 12px; }
+    .card {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 14px;
+    }
+
+    /* ==================== HERO PREMIUM ==================== */
+    .hero {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl); padding: 20px;
+      margin-bottom: 12px; position: relative; overflow: hidden;
+      cursor: pointer;
+    }
+    .hero::before {
+      content: ''; position: absolute; top: -40%; right: -20%;
+      width: 70%; height: 180%;
+      background: radial-gradient(ellipse, var(--green-glow) 0%, transparent 60%);
+      pointer-events: none; opacity: 0.6;
+    }
+    .hero .top-row {
+      display: flex; justify-content: space-between; align-items: center;
+      position: relative; margin-bottom: 6px;
+    }
+    .hero .l {
+      font-size: 11px; color: var(--text-3); letter-spacing: 1.5px;
+      text-transform: uppercase; font-weight: 600;
+    }
+    .hero .delta {
+      font-size: 12px; font-weight: 600;
+      padding: 4px 9px; border-radius: 999px;
+      background: var(--green-bg); color: var(--green);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .hero .delta svg { width: 12px; height: 12px; stroke-width: 2.5; }
+    .hero .delta.neg { background: var(--red-bg); color: var(--red); }
+    .hero .delta.zero { background: var(--bg-2); color: var(--text-4); }
+    .hero .valor {
+      font-size: 34px; font-weight: 700; color: var(--text-1);
+      letter-spacing: -1px; position: relative;
+      line-height: 1.05; margin-bottom: 12px;
+    }
+    .hero .split {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 0; position: relative;
+      padding-top: 14px; border-top: 1px solid var(--border);
+    }
+    .hero .split .cell {
+      padding: 0 4px; position: relative;
+    }
+    .hero .split .cell + .cell { border-left: 1px solid var(--border); padding-left: 14px; }
+    .hero .split .cell .l-mini {
+      font-size: 10px; color: var(--text-4); letter-spacing: 1px;
+      text-transform: uppercase; font-weight: 600;
+      display: flex; align-items: center; gap: 5px; margin-bottom: 4px;
+    }
+    .hero .split .cell .l-mini .icon-wrap {
+      width: 16px; height: 16px; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .hero .split .cell.liq .icon-wrap { background: var(--blue-bg); color: var(--blue); }
+    .hero .split .cell.imob .icon-wrap { background: var(--cyan-bg); color: var(--cyan); }
+    .hero .split .cell .l-mini svg { width: 10px; height: 10px; }
+    .hero .split .cell .v-mini {
+      font-size: 15px; font-weight: 600; color: var(--text-1);
+    }
+    .hero .split .cell .p-mini {
+      font-size: 10px; color: var(--text-4); margin-top: 1px; font-weight: 500;
+    }
+
+    /* Mini cards ativos vs passivos */
+    .mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .mini-card {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 14px;
+      position: relative;
+    }
+    .mini-card .l {
+      font-size: 10px; color: var(--text-4); letter-spacing: 1px;
+      text-transform: uppercase; font-weight: 600; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .mini-card .l .icon-wrap {
+      width: 18px; height: 18px; border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .mini-card.up .l .icon-wrap { background: var(--green-bg); color: var(--green); }
+    .mini-card.down .l .icon-wrap { background: var(--red-bg); color: var(--red); }
+    .mini-card .l svg { width: 11px; height: 11px; }
+    .mini-card .v { font-size: 18px; font-weight: 700; color: var(--text-1); line-height: 1.1; }
+    .mini-card.up .v { color: var(--text-1); }
+    .mini-card.down .v { color: var(--red); }
+    .mini-card .pct { font-size: 11px; color: var(--text-4); margin-top: 3px; font-weight: 500; }
+
+    /* ==================== GRAFICO TOGGLE ==================== */
+    .viz-toggle {
+      display: flex; gap: 2px; background: var(--bg-1);
+      border: 1px solid var(--border); border-radius: var(--r-md);
+      padding: 3px;
+    }
+    .viz-toggle button {
+      padding: 5px 10px; font-size: 11px; font-weight: 500;
+      border-radius: var(--r-sm);
+      color: var(--text-3); transition: all 0.15s;
+    }
+    .viz-toggle button.active {
+      background: var(--bg-3); color: var(--text-1);
+      box-shadow: 0 0 0 1px var(--border-hi);
+    }
+
+    /* Donut */
+    .donut-box {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 16px;
+      display: flex; gap: 18px; align-items: center;
+    }
+    .donut-svg { flex-shrink: 0; }
+    .donut-svg circle { transition: stroke-width 0.2s; cursor: pointer; }
+    .donut-svg circle:hover { stroke-width: 24; }
+    .donut-center-txt {
+      font-size: 9px; fill: var(--text-4); text-anchor: middle;
+      text-transform: uppercase; letter-spacing: 1.2px; font-weight: 600;
+    }
+    .donut-center-val {
+      font-size: 13px; fill: var(--text-1); text-anchor: middle; font-weight: 700;
+    }
+    .legend { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .legend-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      font-size: 12px; cursor: pointer; padding: 4px 6px;
+      border-radius: var(--r-sm); transition: background 0.12s;
+    }
+    .legend-row:hover { background: var(--bg-2); }
+    .legend-row .swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+    .legend-row .nm {
+      flex: 1; min-width: 0; color: var(--text-2); font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .legend-row .pc { color: var(--text-4); font-size: 11px; font-weight: 500; }
+    .legend-row .vl { color: var(--text-1); font-weight: 600; font-size: 12px; }
+
+    /* Bars */
+    .bars-box {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 14px;
+    }
+    .bars-row { margin-bottom: 12px; }
+    .bars-row:last-child { margin-bottom: 0; }
+    .bars-row .head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 5px;
+    }
+    .bars-row .nm { font-size: 12px; color: var(--text-1); font-weight: 500; }
+    .bars-row .right { display: flex; gap: 8px; align-items: baseline; }
+    .bars-row .pct { font-size: 11px; color: var(--text-4); font-weight: 500; }
+    .bars-row .vl { font-size: 12px; color: var(--text-1); font-weight: 600; }
+    .bars-row .track {
+      height: 6px; background: var(--bg-3); border-radius: 3px;
+      overflow: hidden;
+    }
+    .bars-row .fill {
+      height: 100%; border-radius: 3px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ==================== CHIPS ==================== */
+    .chips-scroll {
+      display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+      padding: 2px 0; margin-bottom: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .chips-scroll::-webkit-scrollbar { display: none; }
+    .chip {
+      background: var(--bg-1); border: 1px solid var(--border);
+      color: var(--text-2); padding: 7px 13px; border-radius: 999px;
+      font-size: 12px; font-weight: 500; white-space: nowrap; flex-shrink: 0;
+      letter-spacing: 0.1px; transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .chip svg { width: 13px; height: 13px; stroke-width: 2; }
+    .chip.active {
+      background: var(--text-1); color: var(--bg-0); font-weight: 600;
+      border-color: var(--text-1);
+    }
+    .chip.active svg { stroke: var(--bg-0); }
+    .chip:active:not(.active) { background: var(--bg-2); }
+    .chip .count {
+      opacity: 0.7; font-size: 10px; font-weight: 600;
+      padding: 1px 5px; background: rgba(255,255,255,0.08);
+      border-radius: 99px;
+    }
+    .chip.active .count { background: rgba(0,0,0,0.15); opacity: 0.8; }
+
+    /* ==================== STATUS BADGES ==================== */
+    .badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 6px; font-size: 9px;
+      font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      border-radius: 4px; margin-right: 4px;
+      vertical-align: middle;
+    }
+    .badge svg { width: 9px; height: 9px; stroke-width: 2.5; }
+    .badge.api { background: var(--blue-bg); color: var(--blue); }
+    .badge.manual { background: var(--amber-bg); color: var(--amber); }
+    .badge.liq { background: var(--green-bg); color: var(--green); }
+    .badge.imob { background: var(--cyan-bg); color: var(--cyan); }
+    .badge.div { background: var(--red-bg); color: var(--red); }
+
+    /* ==================== DRILLDOWN ==================== */
+    .drilldown-row {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 12px 14px; margin-bottom: 6px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .drilldown-row:active { background: var(--bg-2); }
+    .drilldown-row .head {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .drilldown-row .head .nome {
+      font-size: 13px; font-weight: 600; color: var(--text-1);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .drilldown-row .head .vl { font-size: 14px; font-weight: 700; color: var(--text-1); }
+    .drilldown-row .pct { font-size: 11px; color: var(--text-4); margin-top: 2px; font-weight: 500; }
+    .drilldown-row .bar {
+      height: 3px; background: var(--bg-3); border-radius: 2px;
+      margin-top: 8px; overflow: hidden;
+    }
+    .drilldown-row .bar > div {
+      height: 100%; background: var(--green);
+      border-radius: 2px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+    }
+    .drilldown-row.expanded .chev { transform: rotate(90deg); }
+    .drilldown-row .chev {
+      color: var(--text-4); transition: transform 0.2s;
+      display: inline-flex; width: 14px; height: 14px;
+    }
+    .drilldown-row .chev svg { width: 14px; height: 14px; }
+    .drilldown-children {
+      margin-top: 10px; padding-top: 8px;
+      border-top: 1px solid var(--border);
+      display: none;
+    }
+    .drilldown-row.expanded .drilldown-children { display: block; }
+    /* ==================== SUBCAT-HEAD (header de classif_2 dentro do drilldown) ====================
+       Estrategia v4: TUDO BRANCO + mesma fonte dos numeros monetarios (Inter + tabular-nums).
+       Sem cor accent. Sem mono font. Hierarquia POR TAMANHO + WEIGHT apenas.
+       Border-left e bg sutil dao acento sem ruido cromatico. */
+    .subcat-head {
+      display: flex; flex-direction: column;
+      padding: 10px 12px 8px;
+      gap: 5px;
+      border-left: 3px solid var(--text-3);
+      background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, transparent 50%);
+      border-radius: 0 6px 6px 0;
+      margin: 10px 0 4px;
+    }
+    .subcat-head:first-child { margin-top: 4px; }
+    .subcat-head .row1 {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 12px;
+    }
+    .subcat-head .title {
+      font-size: 12px; font-weight: 700; color: var(--text-1);
+      letter-spacing: 1.4px; text-transform: uppercase;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .subcat-head .vl {
+      font-size: 14px; font-weight: 700; color: var(--text-1);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    /* row2: usa MESMA fonte do resto (Inter, herdada do body), nao mono.
+       Tabular-nums pra alinhar verticalmente os percentuais. */
+    .subcat-head .row2 {
+      display: flex; align-items: baseline; gap: 16px;
+      font-variant-numeric: tabular-nums;
+    }
+    .subcat-head .metric { display: inline-flex; align-items: baseline; gap: 5px; }
+    .subcat-head .metric.primary .m-val {
+      color: var(--text-1);
+      font-size: 14px; font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+    .subcat-head .metric.muted .m-val {
+      color: var(--text-1);
+      font-size: 11px; font-weight: 500;
+    }
+    .subcat-head .m-lbl {
+      font-size: 9px; text-transform: uppercase;
+      letter-spacing: 1px; font-weight: 600;
+      color: var(--text-4);
+    }
+    @media (min-width: 768px) {
+      .subcat-head .vl { font-size: 15px; }
+      .subcat-head .metric.primary .m-val { font-size: 16px; }
+      .subcat-head .metric.muted .m-val { font-size: 12px; }
+    }
+
+    /* ==================== ATIVO ITEM ==================== */
+    .ativo-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+    }
+    .ativo-item:last-child { border-bottom: none; }
+    .ativo-item:active { opacity: 0.7; }
+    .ativo-item .left { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+    .ativo-item .ico-wrap {
+      width: 32px; height: 32px; border-radius: var(--r-sm);
+      background: var(--bg-2); color: var(--text-3);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .ativo-item .ico-wrap svg { width: 16px; height: 16px; stroke-width: 2; }
+    .ativo-item .info { min-width: 0; flex: 1; }
+    .ativo-item .nome {
+      font-size: 13px; font-weight: 500; color: var(--text-1);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .ativo-item .classif {
+      font-size: 11px; color: var(--text-4); margin-top: 2px;
+      font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ativo-item .right { text-align: right; flex-shrink: 0; }
+    .ativo-item .valor { font-size: 13px; font-weight: 600; color: var(--text-1); }
+    .ativo-item .valor.neg { color: var(--red); }
+    .ativo-item .var { font-size: 11px; margin-top: 2px; font-weight: 600; }
+    .var.pos { color: var(--green); }
+    .var.neg { color: var(--red); }
+    .var.zero { color: var(--text-5); }
+
+    /* Modo COMPACTO: cards em grid */
+    /* COMPACT CARDS: tamanho FIXO compacto. Nomes longos truncam com ellipsis (…).
+       Hover (desktop) mostra title nativo do HTML com nome completo. */
+    .compact-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .compact-card {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 10px 12px;
+      cursor: pointer; transition: all 0.15s;
+      position: relative; min-height: 80px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      overflow: hidden;
+    }
+    .compact-card:active { background: var(--bg-2); }
+    .compact-card:hover { border-color: rgba(255,255,255,0.12); }
+    .compact-card .top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .compact-card .ico-wrap {
+      width: 24px; height: 24px; border-radius: var(--r-sm);
+      background: var(--bg-2); color: var(--text-3);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .compact-card .ico-wrap svg { width: 13px; height: 13px; }
+    .compact-card .top .title { flex: 1; min-width: 0; overflow: hidden; }
+    .compact-card .nm {
+      font-size: 12px; color: var(--text-1); font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .compact-card .cl {
+      font-size: 9px; color: var(--text-4); font-weight: 500;
+      margin-top: 1px; letter-spacing: 0.5px; text-transform: uppercase;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .compact-card .bot {
+      display: flex; align-items: baseline; justify-content: space-between;
+      margin-top: 6px; gap: 6px;
+    }
+    .compact-card .vl { font-size: 14px; font-weight: 700; color: var(--text-1); }
+    .compact-card.neg .vl { color: var(--red); }
+    .compact-card .vr { font-size: 11px; font-weight: 600; flex-shrink: 0; }
+
+    /* ==================== TOOLBAR ==================== */
+    .search-wrap {
+      position: relative; margin-bottom: 10px;
+    }
+    .search-wrap input {
+      width: 100%;
+      background: var(--bg-1); border: 1px solid var(--border);
+      color: var(--text-1); padding: 10px 12px 10px 36px;
+      border-radius: var(--r-md); font-size: 13px;
+    }
+    .search-wrap input::placeholder { color: var(--text-4); }
+    .search-wrap input:focus { border-color: var(--border-hi); }
+    .search-wrap .ico {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--text-4); pointer-events: none;
+    }
+    .search-wrap .ico svg { width: 15px; height: 15px; }
+    .toolbar-row2 {
+      display: flex; gap: 8px; justify-content: space-between; align-items: center;
+      margin-bottom: 12px;
+    }
+    select.sorter {
+      background: var(--bg-1); border: 1px solid var(--border);
+      color: var(--text-2); padding: 6px 10px; border-radius: var(--r-sm);
+      font-size: 11px; font-weight: 500;
+    }
+
+    /* ==================== INSIGHTS ==================== */
+    .insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .insight {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 12px;
+      display: flex; align-items: start; gap: 10px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .insight:active { background: var(--bg-2); }
+    .insight .ico {
+      width: 34px; height: 34px; border-radius: var(--r-sm); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .insight .ico svg { width: 16px; height: 16px; stroke-width: 2; }
+    .insight.green .ico { background: var(--green-bg); color: var(--green); }
+    .insight.red  .ico { background: var(--red-bg); color: var(--red); }
+    .insight.blue .ico { background: var(--blue-bg); color: var(--blue); }
+    .insight.amber .ico { background: var(--amber-bg); color: var(--amber); }
+    .insight.purple .ico { background: var(--purple-bg); color: var(--purple); }
+    .insight.cyan .ico { background: var(--cyan-bg); color: var(--cyan); }
+    .insight .txt { flex: 1; min-width: 0; }
+    .insight .t {
+      font-size: 10px; color: var(--text-4); letter-spacing: 0.8px;
+      text-transform: uppercase; font-weight: 600;
+    }
+    .insight .v {
+      font-size: 12px; color: var(--text-1); font-weight: 600; margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .insight .s {
+      font-size: 11px; margin-top: 2px; font-weight: 600;
+    }
+    .insight.green .s { color: var(--green); }
+    .insight.red .s { color: var(--red); }
+    .insight.blue .s { color: var(--blue); }
+    .insight.amber .s { color: var(--amber); }
+    .insight.purple .s { color: var(--purple); }
+    .insight.cyan .s { color: var(--cyan); }
+
+    /* ==================== HISTORICO ==================== */
+    .line-chart-box {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 14px 12px 10px 12px;
+    }
+    .line-chart-box svg { width: 100%; height: auto; display: block; }
+    .line-chart-box .legend-line {
+      display: flex; gap: 16px; justify-content: center; margin-top: 8px;
+      font-size: 11px; color: var(--text-4); font-weight: 500;
+    }
+    .line-chart-box .legend-line span { display: inline-flex; align-items: center; gap: 5px; }
+    .hist-stats {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px; margin-top: 10px;
+    }
+    .hist-stats .cell {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 10px;
+      text-align: center;
+    }
+    .hist-stats .cell .l { font-size: 10px; color: var(--text-4); letter-spacing: 0.8px; text-transform: uppercase; font-weight: 600; }
+    .hist-stats .cell .v { font-size: 14px; font-weight: 700; margin-top: 3px; color: var(--text-1); }
+    .hist-stats .cell .v.pos { color: var(--green); }
+    .hist-stats .cell .v.neg { color: var(--red); }
+
+    /* ==================== ALVO ==================== */
+    .target-row {
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 12px 14px; margin-bottom: 8px;
+    }
+    .target-row .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .target-row .nome { font-size: 13px; font-weight: 600; color: var(--text-1); }
+    .target-row .spec {
+      font-size: 11px; color: var(--text-3); margin-top: 2px; font-weight: 500;
+    }
+    .target-row input[type=range] {
+      width: 100%; accent-color: var(--green); margin-top: 4px;
+    }
+    .target-row .nums {
+      display: flex; justify-content: space-between; margin-top: 4px;
+      font-size: 11px; color: var(--text-4); font-weight: 500;
+    }
+    .target-row .desvio {
+      font-weight: 600; padding: 3px 8px; border-radius: 99px; font-size: 11px;
+    }
+    .target-row .desvio.ok { color: var(--green); background: var(--green-bg); }
+    .target-row .desvio.warn { color: var(--amber); background: var(--amber-bg); }
+    .target-row .desvio.bad { color: var(--red); background: var(--red-bg); }
+    .target-sum {
+      font-size: 11px; color: var(--text-4); text-align: right;
+      margin-top: 10px; padding: 0 4px; font-weight: 500;
+    }
+    .target-sum.bad { color: var(--red); font-weight: 600; }
+    .target-sum.ok { color: var(--green); font-weight: 600; }
+
+    /* ==================== MODAL ==================== */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      z-index: 300; display: none; align-items: flex-end;
+      animation: fadeIn 0.2s;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .modal-overlay.on { display: flex; }
+    .modal-card {
+      background: var(--bg-1); width: 100%; max-width: 560px; margin: 0 auto;
+      border-radius: var(--r-xl) var(--r-xl) 0 0; padding: 20px;
+      animation: slideUp 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+      max-height: 92vh; overflow-y: auto; position: relative;
+      border: 1px solid var(--border); border-bottom: none;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-card .close {
+      position: absolute; right: 16px; top: 16px;
+      width: 32px; height: 32px; background: var(--bg-2);
+      border-radius: 50%; color: var(--text-2);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; border: 1px solid var(--border);
+    }
+    .modal-card .close:active { background: var(--bg-3); transform: rotate(90deg); }
+    .modal-card .close svg { width: 15px; height: 15px; }
+    .modal-card .modal-badges { margin-bottom: 8px; }
+    .modal-card h2 {
+      font-size: 18px; color: var(--text-1); margin-bottom: 4px;
+      padding-right: 40px; font-weight: 700; letter-spacing: -0.3px;
+    }
+    .modal-card .classif { font-size: 11px; color: var(--text-4); margin-bottom: 16px; font-weight: 500; }
+    .modal-hero-val {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 18px;
+      margin-bottom: 14px; text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .modal-hero-val::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at center, var(--green-glow) 0%, transparent 70%);
+      pointer-events: none; opacity: 0.4;
+    }
+    .modal-hero-val .l {
+      font-size: 10px; color: var(--text-4); letter-spacing: 1.2px;
+      text-transform: uppercase; font-weight: 600; position: relative;
+    }
+    .modal-hero-val .v {
+      font-size: 28px; font-weight: 700; color: var(--text-1);
+      margin-top: 4px; position: relative; letter-spacing: -0.5px;
+    }
+    .modal-hero-val .v.neg { color: var(--red); }
+    .modal-hero-val .delta {
+      display: inline-flex; align-items: center; gap: 4px;
+      margin-top: 8px; padding: 4px 10px;
+      border-radius: 999px; font-size: 12px; font-weight: 600;
+      background: var(--green-bg); color: var(--green); position: relative;
+    }
+    .modal-hero-val .delta svg { width: 12px; height: 12px; stroke-width: 2.5; }
+    .modal-hero-val .delta.neg { background: var(--red-bg); color: var(--red); }
+    .modal-hero-val .delta.zero { background: var(--bg-3); color: var(--text-4); }
+    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .modal-grid .cell {
+      background: var(--bg-2); padding: 10px 12px;
+      border-radius: var(--r-sm); border: 1px solid var(--border);
+    }
+    .modal-grid .cell .l { font-size: 10px; color: var(--text-4); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+    .modal-grid .cell .v { font-size: 13px; color: var(--text-1); font-weight: 500; margin-top: 3px; }
+    .modal-grid .cell .v.neg { color: var(--red); }
+    .modal-grid .cell.full { grid-column: 1 / -1; }
+
+    .classif-table {
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 10px 14px; margin-top: 10px;
+    }
+    .classif-table .row {
+      display: flex; justify-content: space-between;
+      padding: 6px 0; font-size: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .classif-table .row:last-child { border-bottom: none; }
+    .classif-table .row .k {
+      color: var(--text-4); letter-spacing: 0.8px; text-transform: uppercase;
+      font-size: 10px; font-weight: 600;
+    }
+    .classif-table .row .v { color: var(--text-1); font-weight: 500; }
+
+    /* ==================== ALOCACAO POR CATEGORIA ====================
+       Lista compacta com barra horizontal embutida + % + valor.
+       Cores semanticas (cada categoria tem hue diferente do --aloc-cor inline).
+       Mobile-first: padding/font reduzidos em <768px, crescem no desktop. */
+    .aloc-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-bottom: 1px solid var(--border);
+    }
+    .aloc-row:last-child { border-bottom: none; }
+    .aloc-row .ico-wrap {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .aloc-row .ico-wrap svg { width: 14px; height: 14px; stroke-width: 2; }
+    .aloc-row .body { flex: 1; min-width: 0; }
+    .aloc-row .top {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 8px; margin-bottom: 5px;
+    }
+    .aloc-row .nm {
+      font-size: 12px; font-weight: 600; color: var(--text-1);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .aloc-row .vl { font-size: 12px; font-weight: 600; color: var(--text-1); flex-shrink: 0; }
+    .aloc-row .bar {
+      height: 4px; background: var(--bg-3); border-radius: 2px;
+      overflow: hidden; position: relative;
+    }
+    .aloc-row .bar > div {
+      height: 100%; border-radius: 2px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .aloc-row .bot {
+      display: flex; justify-content: space-between; margin-top: 4px;
+      font-size: 10px; color: var(--text-4); font-weight: 500;
+    }
+    .aloc-row .bot .pc { font-weight: 700; }
+    .aloc-row .bot .qty { font-weight: 500; }
+    @media (min-width: 768px) {
+      .aloc-row { padding: 12px 16px; }
+      .aloc-row .nm { font-size: 13px; }
+      .aloc-row .vl { font-size: 14px; }
+      .aloc-row .bot { font-size: 11px; }
+    }
+
+    /* ==================== GANHO REAL (IPCA) ====================
+       Bloco condicional no modal: aparece SO quando ativo tem calc_real=TRUE
+       e backend retornou ganho_real (precisa de data_aquis valida + IPCA do BCB).
+       Pos/neg seguem mesmas cores semanticas do resto do app. */
+    .ganho-real-block {
+      margin-top: 12px; padding: 14px;
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: var(--r-md);
+    }
+    .grb-title {
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--amber);
+      display: flex; align-items: center; gap: 6px; margin-bottom: 12px;
+    }
+    .grb-title svg { width: 12px; height: 12px; stroke: var(--amber); }
+    .grb-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px;
+      padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    }
+    .grb-grid .cell .l {
+      font-size: 9px; color: var(--text-4); text-transform: uppercase;
+      letter-spacing: 0.8px; font-weight: 600;
+    }
+    .grb-grid .cell .v { font-size: 12px; color: var(--text-1); font-weight: 500; margin-top: 2px; }
+    .grb-pcts {
+      display: flex; gap: 4px; padding: 12px 4px 4px;
+      align-items: stretch;
+    }
+    .grb-pct {
+      flex: 1; text-align: center; padding: 8px 4px;
+      background: var(--bg-1); border-radius: 8px;
+    }
+    .grb-pct .l {
+      font-size: 9px; color: var(--text-4); text-transform: uppercase;
+      letter-spacing: 0.8px; font-weight: 600; margin-bottom: 4px;
+    }
+    .grb-pct .v { font-size: 13px; font-weight: 700; color: var(--text-1); }
+    .grb-pct.big { background: var(--bg-3); }
+    .grb-pct.big .v { font-size: 18px; }
+    .grb-pct .v.pos { color: var(--green); }
+    .grb-pct .v.neg { color: var(--red); }
+    .grb-pct .v.ipca { color: var(--amber); }
+    .grb-foot {
+      font-size: 10px; color: var(--text-4); margin-top: 10px;
+      font-style: italic; line-height: 1.4;
+    }
+    @media (min-width: 768px) {
+      .grb-pct.big .v { font-size: 22px; }
+      .grb-grid .cell .v { font-size: 13px; }
+    }
+
+    /* ==================== TOAST ==================== */
+    .toast {
+      position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%);
+      background: var(--bg-2); color: var(--text-1);
+      padding: 10px 18px; border-radius: var(--r-md);
+      border: 1px solid var(--green);
+      font-size: 13px; font-weight: 500;
+      z-index: 400; opacity: 0; pointer-events: none;
+      transition: opacity 0.25s; white-space: nowrap;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 24px var(--green-glow);
+    }
+    .toast.on { opacity: 1; }
+    .toast.err { border-color: var(--red); box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 24px var(--red-bg); }
+
+    /* ==================== EMPTY ==================== */
+    .empty {
+      text-align: center; padding: 40px 20px;
+      color: var(--text-4); font-size: 13px;
+    }
+    .empty .ico {
+      width: 48px; height: 48px; margin: 0 auto 12px;
+      background: var(--bg-2); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-3);
+    }
+    .empty .ico svg { width: 22px; height: 22px; }
+
+    /* ==================== DESKTOP (>=768px) ==================== */
+    /* Numeros devem crescer junto do texto no desktop */
+    @media (min-width: 768px) {
+      html, body { font-size: 14px; }
+      main { padding: 22px 22px 96px 22px; }
+      header.topbar { padding: 14px 24px; }
+      header.topbar .brand { font-size: 15px; }
+      header.topbar button.icon-btn { width: 40px; height: 40px; }
+      header.topbar button.icon-btn svg { width: 17px; height: 17px; }
+      nav.bottom-nav button { font-size: 11px; padding: 10px 6px; }
+      nav.bottom-nav button svg { width: 22px; height: 22px; }
+      .hero { padding: 28px 26px; }
+      .hero .valor { font-size: 42px; letter-spacing: -1.2px; }
+      .hero .l { font-size: 12px; }
+      .hero .delta { font-size: 13px; }
+      .hero .split .cell .v-mini { font-size: 17px; }
+      .hero .split .cell .l-mini { font-size: 11px; }
+      .hero .split .cell .p-mini { font-size: 11px; }
+      .mini-card { padding: 16px 18px; }
+      .mini-card .v { font-size: 22px; }
+      .mini-card .l { font-size: 11px; }
+      .mini-card .pct { font-size: 12px; }
+      .mini-grid { gap: 14px; }
+      .donut-box { padding: 22px; gap: 28px; }
+      .drilldown-row { padding: 14px 18px; }
+      .drilldown-row .head .nome { font-size: 14px; }
+      .drilldown-row .head .vl { font-size: 16px; }
+      .drilldown-row .pct { font-size: 12px; }
+      .ativo-item { padding: 12px 4px; }
+      .ativo-item .nome { font-size: 14px; }
+      .ativo-item .classif { font-size: 12px; }
+      .ativo-item .valor { font-size: 14px; }
+      .ativo-item .var { font-size: 12px; }
+      .ativo-item .ico-wrap { width: 36px; height: 36px; }
+      .ativo-item .ico-wrap svg { width: 18px; height: 18px; }
+      .section-title { font-size: 12px; }
+      .insights-grid { grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+      .insight { padding: 14px; }
+      .insight .ico { width: 40px; height: 40px; }
+      .insight .ico svg { width: 18px; height: 18px; }
+      .insight .v { font-size: 13px; }
+      .modal-card {
+        border-radius: var(--r-xl); margin: auto; max-width: 640px;
+        border-bottom: 1px solid var(--border);
+      }
+      .modal-overlay { align-items: center; padding: 20px; }
+      .modal-card h2 { font-size: 22px; }
+      .modal-grid .cell .v { font-size: 14px; }
+      .modal-hero-val .v { font-size: 34px; }
+      .chip { font-size: 13px; padding: 8px 15px; }
+      .bars-row .nm { font-size: 13px; }
+      .bars-row .vl { font-size: 13px; }
+      /* Desktop: 4 colunas, mas nome continua 12px (cards mais compactos e uniformes).
+         Nomes longos cortam com … e o tooltip nativo (title attr) mostra completo no hover. */
+      .compact-grid { grid-template-columns: 1fr 1fr 1fr 1fr; }
+      .compact-card { min-height: 76px; padding: 10px 12px; }
+      .compact-card .nm { font-size: 12px; }
+      .compact-card .vl { font-size: 15px; }
+      .badge { font-size: 10px; padding: 3px 7px; }
+      .badge svg { width: 10px; height: 10px; }
+      .hist-stats .cell .v { font-size: 16px; }
+      .viz-toggle button { font-size: 12px; padding: 7px 14px; }
+      #login-screen .brand { font-size: 32px; }
+      #login-screen .sub { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <section id="login-screen">
+    <div class="brand">HELIOS NEO</div>
+    <div class="sub">Console de Diagnostico</div>
+    <input type="password" inputmode="numeric" maxlength="4" autocomplete="off"
+           id="senha-input" class="pin-input" placeholder="••••">
+    <div class="error" id="login-error"></div>
+  </section>
+
+  <!-- APP -->
+  <div id="app" style="display:none;">
+    <header class="topbar">
+      <!-- Header interno do app: nome real ("Status Patrimonio").
+           DISFARCE EXTERNO (login screen, manifest, title da aba) continua "HELIOS NEO". -->
+      <div class="brand"><span class="dot"></span>STATUS PATRIMÔNIO</div>
+      <div class="actions">
+        <button id="btn-camuflagem" class="icon-btn" title="Camuflagem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button id="btn-refresh" class="icon-btn" title="Atualizar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg></button>
+        <button id="btn-logout" class="icon-btn" title="Sair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============== HOME ============== -->
+      <div class="view on" data-view="home">
+        <div class="hero" id="hero-card">
+          <div class="top-row">
+            <span class="l">Patrimônio Líquido</span>
+            <span class="delta" id="hero-delta" style="display:none;"></span>
+          </div>
+          <div class="valor num" id="hero-liquido">R$ —</div>
+          <div class="split">
+            <div class="cell liq">
+              <div class="l-mini">
+                <span class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+                Liquidez
+              </div>
+              <div class="v-mini num" id="hero-liquidez">R$ —</div>
+              <div class="p-mini num" id="hero-liquidez-pct">—</div>
+            </div>
+            <div class="cell imob">
+              <div class="l-mini">
+                <span class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-7 9 7v12"/><path d="M9 22V12h6v10"/></svg></span>
+                Imobilizado
+              </div>
+              <div class="v-mini num" id="hero-imob">R$ —</div>
+              <div class="p-mini num" id="hero-imob-pct">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mini-grid">
+          <div class="mini-card up">
+            <div class="l">
+              <span class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
+              Ativos (Bruto)
+            </div>
+            <div class="v num" id="mini-ativos">R$ —</div>
+            <div class="pct num" id="mini-ativos-pct">—</div>
+          </div>
+          <div class="mini-card down">
+            <div class="l">
+              <span class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg></span>
+              Dívidas
+            </div>
+            <div class="v num" id="mini-dividas">R$ —</div>
+            <div class="pct num" id="mini-dividas-pct">—</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">
+            <span>Alocação por Classe</span>
+            <div class="viz-toggle" id="viz-toggle-alocacao">
+              <button data-viz="donut" class="active">Donut</button>
+              <button data-viz="bars">Barras</button>
+            </div>
+          </div>
+          <div id="viz-donut" class="donut-box">
+            <div id="donut-wrap"></div>
+            <div class="legend" id="donut-legend"></div>
+          </div>
+          <div id="viz-bars" class="bars-box" style="display:none;"></div>
+        </div>
+
+        <!-- Alocacao detalhada por categoria (classif_2): barras horizontais + valor + %.
+             Mostra granularidade real: Renda Variavel, Renda Fixa, Imovel, Carro, Caixa, etc.
+             Pedido pelo Marcelo: ver alocacao logo na frente sem ter que entrar em "Ativos". -->
+        <div class="section">
+          <div class="section-title">
+            <span>Alocação por Categoria</span>
+          </div>
+          <div class="card" id="aloc-categoria"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Insights</div>
+          <div class="insights-grid" id="insights-grid"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">
+            <span>Top Movers</span>
+            <button class="link" data-goto="ativos">
+              Ver todos
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+          <div class="card" id="top-movers"></div>
+        </div>
+      </div>
+
+      <!-- ============== ATIVOS ============== -->
+      <div class="view" data-view="ativos">
+        <div class="search-wrap">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <input type="search" id="search-ativos" placeholder="Buscar ativo, ticker…">
+        </div>
+
+        <div class="chips-scroll" id="chips-c1"></div>
+
+        <div class="toolbar-row2">
+          <div class="viz-toggle" id="viz-toggle-ativos">
+            <button data-mode="hier" class="active">Hierarquia</button>
+            <button data-mode="lista">Lista</button>
+            <button data-mode="compacto">Cards</button>
+          </div>
+          <select id="sort-ativos" class="sorter">
+            <option value="valor-desc">Valor ↓</option>
+            <option value="valor-asc">Valor ↑</option>
+            <option value="var-desc">Var % ↓</option>
+            <option value="var-asc">Var % ↑</option>
+            <option value="nome-asc">Nome A-Z</option>
+          </select>
+        </div>
+
+        <div id="ativos-list"></div>
+      </div>
+
+      <!-- ============== PASSIVOS ============== -->
+      <div class="view" data-view="passivos">
+        <div class="section-title">Passivos (dívidas)</div>
+        <div class="hero" style="cursor:default;">
+          <div class="top-row">
+            <span class="l">Total de Dívidas</span>
+          </div>
+          <div class="valor num" id="passivos-total" style="color:var(--red);">R$ —</div>
+          <div class="p-mini num" id="passivos-pct" style="color:var(--text-4);margin-top:6px;font-weight:500;">—</div>
+        </div>
+        <div class="card" id="passivos-list"></div>
+      </div>
+
+      <!-- ============== HISTORICO ============== -->
+      <div class="view" data-view="historico">
+        <div class="section-title">
+          <span>Histórico</span>
+          <div class="viz-toggle" id="viz-toggle-serie">
+            <button data-serie="ambos" class="active">Ambos</button>
+            <button data-serie="bruto">Bruto</button>
+            <button data-serie="liquido">Líquido</button>
+          </div>
+        </div>
+        <div class="chips-scroll" id="chips-periodo">
+          <button class="chip active" data-p="todo">Tudo</button>
+          <button class="chip" data-p="12">12m</button>
+          <button class="chip" data-p="6">6m</button>
+          <button class="chip" data-p="3">3m</button>
+          <button class="chip" data-p="1">1m</button>
+        </div>
+        <div class="line-chart-box" id="line-chart-box">
+          <div class="empty" id="historico-empty" style="display:none;">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+            <div>Sem snapshots ainda.</div>
+            <div style="margin-top:6px;color:var(--text-5);font-size:11px;">O primeiro snapshot roda no dia 1 de cada mes.</div>
+          </div>
+          <svg id="line-svg" viewBox="0 0 400 200" preserveAspectRatio="none" style="display:none;"></svg>
+          <div class="legend-line" id="line-legend" style="display:none;">
+            <span><span style="display:inline-block;width:12px;height:2px;background:var(--green);border-radius:1px;"></span> Bruto</span>
+            <span><span style="display:inline-block;width:12px;height:2px;background:var(--text-4);border-radius:1px;"></span> Líquido</span>
+          </div>
+        </div>
+        <div class="hist-stats" id="hist-stats" style="display:none;"></div>
+      </div>
+
+      <!-- ============== ALVO ============== -->
+      <div class="view" data-view="alvo">
+        <div class="section-title">Alocação Alvo</div>
+        <div style="font-size:12px;color:var(--text-4);margin-bottom:14px;padding:0 2px;font-weight:500;">
+          Defina o percentual ideal para cada classe. O sistema mostra o desvio vs alocação real.
+        </div>
+        <div id="alvo-list"></div>
+        <div class="target-sum" id="target-sum"></div>
+      </div>
+    </main>
+
+    <nav class="bottom-nav">
+      <button data-nav="home" class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Home</span>
+      </button>
+      <button data-nav="ativos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4Z"/></svg>
+        <span>Ativos</span>
+      </button>
+      <button data-nav="passivos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <span>Dívidas</span>
+      </button>
+      <button data-nav="historico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        <span>Historico</span>
+      </button>
+      <button data-nav="alvo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <span>Alvo</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- MODAL DETALHE -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-card">
+      <button class="close" onclick="closeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ==================== CONFIG ====================
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxwn8eM4R9sLQUaLTpaGURBq0C05d80ag-hLD6aA8-SHjWEyWJdcOSSKg4App73_Y-wIg/exec';
+    const TOKEN   = '7b08de3eb6c64cfcae98e27d6c4f952b';
+    const SENHA   = '9832';
+
+    // Paleta semantica variada pro donut/barras
+    const PALETA = ['#10b981','#3b82f6','#a855f7','#f59e0b','#06b6d4','#ec4899','#14b8a6','#f97316','#8b5cf6','#84cc16'];
+
+    // Icones SVG inline (Lucide) por contexto
+    const ICONS = {
+      home:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+      building:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="8" x2="9" y2="8"/><line x1="15" y1="8" x2="15" y2="8"/><line x1="9" y1="13" x2="9" y2="13"/><line x1="15" y1="13" x2="15" y2="13"/></svg>',
+      car:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h2"/><circle cx="6.5" cy="16.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg>',
+      bitcoin:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.767 19.089c4.924.868 6.14-6.025 1.216-6.894m-1.216 6.894L5.86 18.047m5.908 1.042-.347 1.97m1.563-8.864c4.924.869 6.14-6.025 1.215-6.893m-1.215 6.893L8.92 12.13m3.453-6.934L12.15 4.0m2.24 8.897L9.44 11.93m2.245-6.734L5.88 4.244"/></svg>',
+      chart:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+      wallet:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M20 12v4H6a2 2 0 0 0 0 4h14v-4"/><path d="M20 12h-4a2 2 0 0 0 0 4h4"/></svg>',
+      bank:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>',
+      dollar:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+      crown:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 20 2-7 6 5 5-7 5 5 2-9V20H2Z"/></svg>',
+      target:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+      trending_up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
+      trending_dn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>',
+      scale:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>',
+      droplet:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
+      gem:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>',
+      ban:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>',
+      alert:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12" y2="17"/></svg>',
+      layers:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
+      grid:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+      chev_right: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
+      zap:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'
+    };
+
+    // Mapa de icone por classif_1 (heuristico)
+    function iconForClasse(classif_1) {
+      const c = (classif_1 || '').toUpperCase();
+      if (c.includes('IMOVEL') || c.includes('IMOVEIS')) return ICONS.building;
+      if (c.includes('VEICULO')) return ICONS.car;
+      if (c.includes('CRIPTO') || c.includes('BTC')) return ICONS.bitcoin;
+      if (c.includes('RENDA VARIAVEL') || c.includes('ACOES') || c.includes('ACAO') || c.includes('FII')) return ICONS.trending_up;
+      if (c.includes('RENDA FIXA') || c.includes('CDB') || c.includes('LCI') || c.includes('LCA') || c.includes('TESOURO')) return ICONS.bank;
+      if (c.includes('CAIXA') || c.includes('CONTA') || c.includes('POUPANCA')) return ICONS.wallet;
+      if (c.includes('FUNDOS')) return ICONS.layers;
+      if (c.includes('PREVIDENCIA')) return ICONS.target;
+      if (c.includes('MOEDA') || c.includes('USD') || c.includes('EUR') || c.includes('DOLAR')) return ICONS.dollar;
+      if (c.includes('OUTROS')) return ICONS.gem;
+      return ICONS.gem;
+    }
+
+    // Classificacao automatica LIQUIDO vs IMOBILIZADO
+    const KEYWORDS_LIQUIDO = ['CAIXA','RENDA FIXA','RENDA VARIAVEL','CRIPTO','FUNDOS','TESOURO','CDB','LCI','LCA','CONTA','BANCO','BTC','ACOES','ACAO','ETF','FII','FIAGRO','POUPANCA','MOEDA','STABLE','VARIAVEL'];
+    const KEYWORDS_IMOBILIZADO = ['IMOVEL','IMOVEIS','VEICULO','VEICULOS','ATIVO REAL','ATIVOS REAIS','PREVIDENCIA','TERRENO','CARRO'];
+
+    // === ACENTUACAO PRA EXIBICAO ===
+    // Planilha guarda strings sem acento (mais simples pra busca/comparacao).
+    // Esse mapa traduz palavra-por-palavra pra exibicao bonita no UI.
+    // Atencao: o iconForClasse() e KEYWORDS_* CONTINUAM usando o valor original (sem acento)
+    // — soh aplico prettyLabel() em strings que vao pra TELA.
+    const LABEL_FIX = {
+      'IMOVEL': 'IMÓVEL', 'IMOVEIS': 'IMÓVEIS',
+      'VEICULO': 'VEÍCULO', 'VEICULOS': 'VEÍCULOS',
+      'PATRIMONIO': 'PATRIMÔNIO',
+      'VARIAVEL': 'VARIÁVEL',
+      'PREVIDENCIA': 'PREVIDÊNCIA',
+      'POUPANCA': 'POUPANÇA',
+      'DIVIDA': 'DÍVIDA', 'DIVIDAS': 'DÍVIDAS',
+      'CAMBIO': 'CÂMBIO',
+      'DOLAR': 'DÓLAR',
+      'MOVEL': 'MÓVEL',
+      'LIQUIDO': 'LÍQUIDO', 'LIQUIDA': 'LÍQUIDA',
+      'ACAO': 'AÇÃO', 'ACOES': 'AÇÕES'
+    };
+    function prettyLabel(s) {
+      if (s == null) return s;
+      // Regex pega "palavras" em CAPS (com letras acentuadas tambem) e substitui se mapeado.
+      // Preserva espacos, parenteses, hifens, "›", etc.
+      return String(s).replace(/[A-ZÁÂÃÀÉÊÍÓÔÕÚÇ]+/gu, (w) => LABEL_FIX[w] || w);
+    }
+
+    function isLiquido(a) {
+      const c1 = (a.classif_1 || '').toUpperCase();
+      const c2 = (a.classif_2 || '').toUpperCase();
+      for (const k of KEYWORDS_IMOBILIZADO) if (c1.includes(k) || c2.includes(k)) return false;
+      for (const k of KEYWORDS_LIQUIDO) if (c1.includes(k) || c2.includes(k)) return true;
+      return !!a.ticker_api;
+    }
+
+    const state = {
+      camuflado: false,
+      dashboard: null,
+      ativos: [],
+      snapshots: [],
+      view: 'home',
+      alvoPercentuais: loadAlvo(),
+      alocacaoViz: 'donut',
+      ativosMode: 'hier',
+      ativosSort: 'valor-desc',
+      ativosChip: '',
+      historicoSerie: 'ambos',
+      historicoPeriodo: 'todo',
+    };
+
+    // ==================== HELPERS ====================
+    const $ = (id) => document.getElementById(id);
+    const $$ = (sel) => document.querySelectorAll(sel);
+    const fmtBRL = (v) => {
+      if (v === null || v === undefined || Number.isNaN(v)) return '—';
+      return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+    const fmtBRLCompact = (v) => {
+      if (v === null || v === undefined || Number.isNaN(v)) return '—';
+      const n = Math.abs(Number(v));
+      if (n >= 1e6) return 'R$ ' + (Number(v)/1e6).toFixed(2) + 'M';
+      if (n >= 1e3) return 'R$ ' + (Number(v)/1e3).toFixed(1) + 'k';
+      return fmtBRL(v);
+    };
+    const fmtPct = (v, digits = 2) => {
+      if (v === null || v === undefined) return '—';
+      const n = Number(v) * 100;
+      // Padrao pt-BR: vrigula como decimal. Zero exato sai sem sinal "+" (eh neutro).
+      const numTxt = n.toFixed(digits).replace('.', ',') + '%';
+      if (n === 0) return numTxt;
+      return (n > 0 ? '+' : '') + numTxt; // toFixed ja inclui "-" pra negativos
+    };
+    // === GANHO REAL helpers ===
+    // pctEfetivo: retorna o % a ser mostrado em CARDS/LISTAS.
+    // Regra: se o ativo tem ganho_real (calc_real=TRUE no backend), prioriza o REAL.
+    // Senao usa o nominal (variacao_pct). Isso e o que o Marcelo pediu:
+    // "ativo de inflacao tendo nominal" e ilusao — usar IPCA real sempre que disponivel.
+    const pctEfetivo = (a) => (a && a.ganho_real) ? a.ganho_real.real_pct : (a ? a.variacao_pct : null);
+    const pctEhReal = (a) => !!(a && a.ganho_real);
+    // Adiciona marcador (*) quando o % vem do calculo real, pra diferenciar visualmente do nominal
+    const fmtPctMarcado = (a, digits = 2) => {
+      const v = pctEfetivo(a);
+      if (v == null || v === undefined) return '';
+      return fmtPct(v, digits) + (pctEhReal(a) ? '*' : '');
+    };
+
+    // formata data_aquis (Date, DD/MM/AAAA ou ISO) -> "MMM/AAAA"
+    const fmtDataAquis = (d) => {
+      if (!d) return '—';
+      let date;
+      if (d instanceof Date) date = d;
+      else {
+        const s = String(d).trim();
+        let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (m) date = new Date(+m[3], +m[2]-1, +m[1]);
+        else { m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) date = new Date(+m[1], +m[2]-1, +m[3]); }
+      }
+      if (!date || isNaN(date)) return '—';
+      const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      return meses[date.getMonth()] + '/' + date.getFullYear();
+    };
+    const maskBRL = () => 'R$ •••••';
+    const show = (v) => state.camuflado ? maskBRL() : fmtBRL(v);
+    const showC = (v) => state.camuflado ? maskBRL() : fmtBRLCompact(v);
+
+    function toast(msg, ms = 2500, err = false) {
+      const t = $('toast');
+      t.textContent = msg;
+      t.classList.toggle('err', err);
+      t.classList.add('on');
+      clearTimeout(window._toastT);
+      window._toastT = setTimeout(() => t.classList.remove('on'), ms);
+    }
+
+    async function api(action, extra = {}) {
+      const params = new URLSearchParams({ action, token: TOKEN, ...extra });
+      const r = await fetch(API_URL + '?' + params.toString(), { method: 'GET', redirect: 'follow' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }
+
+    function loadAlvo() {
+      try { return JSON.parse(localStorage.getItem('helios_alvo') || '{}'); }
+      catch { return {}; }
+    }
+    function saveAlvo() { localStorage.setItem('helios_alvo', JSON.stringify(state.alvoPercentuais)); }
+
+    // ==================== LOGIN ====================
+    const senhaInput = $('senha-input');
+    setTimeout(() => senhaInput.focus(), 100);
+    senhaInput.addEventListener('input', () => {
+      if (senhaInput.value.length === 4) {
+        if (senhaInput.value === SENHA) {
+          $('login-screen').style.display = 'none';
+          $('app').style.display = 'block';
+          load();
+        } else {
+          $('login-error').textContent = 'Senha incorreta';
+          senhaInput.classList.add('shake');
+          setTimeout(() => {
+            senhaInput.classList.remove('shake');
+            senhaInput.value = '';
+            $('login-error').textContent = '';
+            senhaInput.focus();
+          }, 500);
+        }
+      } else {
+        $('login-error').textContent = '';
+      }
+    });
+
+    // ==================== LOAD ====================
+    async function load() {
+      try {
+        const [dashRes, ativosRes, snapRes] = await Promise.all([
+          api('dashboard'),
+          api('ativos'),
+          api('snapshots')
+        ]);
+        if (!dashRes.ok || !ativosRes.ok) throw new Error('resposta_invalida');
+        state.dashboard = dashRes.data;
+        state.ativos = ativosRes.data;
+        state.snapshots = snapRes.ok ? (snapRes.data || []) : [];
+        renderAll();
+      } catch (e) {
+        // Mensagens mais claras conforme o tipo de erro:
+        // - "Failed to fetch" = CORS bloqueado ou offline (comum em preview do Claude)
+        // - "HTTP xxx" = Apps Script respondeu erro
+        const isNetErr = /failed to fetch|networkerror|load failed/i.test(e.message);
+        const msg = isNetErr
+          ? 'Sem conexão com backend. Teste no Netlify ou local (file://).'
+          : 'Erro: ' + e.message;
+        toast(msg, 4500, true);
+        console.warn('[Helios] load() falhou:', e.message);
+      }
+    }
+
+    // ==================== RENDER ====================
+    function renderAll() {
+      renderHero();
+      renderMiniCards();
+      renderAlocacao();
+      renderAlocacaoCategoria();
+      renderInsights();
+      renderTopMovers();
+      renderChipsC1();
+      renderAtivosView();
+      renderPassivos();
+      renderHistorico();
+      renderAlvo();
+    }
+
+    function renderHero() {
+      const d = state.dashboard;
+      $('hero-liquido').textContent = show(d.total_liquido);
+
+      let liq = 0, imob = 0;
+      state.ativos.forEach(a => {
+        if (a.total_atual > 0) {
+          if (isLiquido(a)) liq += a.total_atual;
+          else imob += a.total_atual;
+        }
+      });
+      const brt = liq + imob || 1;
+      $('hero-liquidez').textContent = show(liq);
+      $('hero-liquidez-pct').textContent = (liq / brt * 100).toFixed(1) + '% do bruto';
+      $('hero-imob').textContent = show(imob);
+      $('hero-imob-pct').textContent = (imob / brt * 100).toFixed(1) + '% do bruto';
+
+      const snaps = (state.snapshots || []).filter(s => s.total_liquido != null).sort((a,b) => (a.data+'').localeCompare(b.data+''));
+      if (snaps.length >= 2) {
+        const prev = snaps[snaps.length - 2].total_liquido;
+        const curr = d.total_liquido;
+        const delta = (curr - prev) / (prev || 1);
+        const el = $('hero-delta');
+        el.style.display = 'inline-flex';
+        const cls = delta > 0.0005 ? '' : (delta < -0.0005 ? 'neg' : 'zero');
+        el.className = 'delta ' + cls;
+        const arrow = delta >= 0 ? ICONS.trending_up : ICONS.trending_dn;
+        el.innerHTML = arrow + '<span class="num">' + fmtPct(delta, 2) + '</span>';
+      } else {
+        $('hero-delta').style.display = 'none';
+      }
+    }
+
+    function renderMiniCards() {
+      const d = state.dashboard;
+      const totalAtivos = d.total_bruto;
+      const totalDividas = d.total_bruto - d.total_liquido;
+      const pctDividas = totalAtivos > 0 ? (totalDividas / totalAtivos * 100) : 0;
+      $('mini-ativos').textContent = show(totalAtivos);
+      const nAtivos = state.ativos.filter(a => a.total_atual > 0).length;
+      $('mini-ativos-pct').textContent = nAtivos + ' posições';
+      $('mini-dividas').textContent = '-' + show(totalDividas).replace('R$ ', 'R$ ');
+      $('mini-dividas-pct').textContent = pctDividas.toFixed(1) + '% do bruto';
+    }
+
+    // ALOCACAO POR CATEGORIA (classif_2): granular por Renda Variavel, Renda Fixa,
+    // Previdencia, Caixa, Poupanca, Cambio, Imovel, Carro, etc.
+    // Backend retorna por_classif2 no formato "C1 > C2": { valor }, entao a gente extrai
+    // soh a parte depois do " > " e agrupa por C2 puro (junta CAIXA financeiro + CAIXA real, p.ex).
+    function renderAlocacaoCategoria() {
+      const wrap = $('aloc-categoria');
+      const total = state.dashboard.total_bruto || 1;
+      const porC2raw = state.dashboard.por_classif2 || {};
+      // Agrupa por nome de classif_2 (ignorando classif_1 prefix), soma valores.
+      // INCLUI valores negativos (DIVIDAS) — renderizamos em vermelho com sinal "−".
+      const porC2 = {};
+      const c2Counts = {};
+      Object.entries(porC2raw).forEach(([k, v]) => {
+        const c2 = k.includes(' > ') ? k.split(' > ')[1] : k;
+        porC2[c2] = (porC2[c2] || 0) + v;
+      });
+      // Conta ativos por classif_2 (inclui dividas pra mostrar contagem correta)
+      state.ativos.forEach(a => {
+        if (a.total_atual !== 0 && a.classif_2) {
+          c2Counts[a.classif_2] = (c2Counts[a.classif_2] || 0) + 1;
+        }
+      });
+
+      // Ordem: positivos do maior pro menor, depois negativos (dividas no final)
+      const entries = Object.entries(porC2).sort((a, b) => b[1] - a[1]);
+      if (!entries.length) {
+        wrap.innerHTML = '<div class="empty">Sem categorias para exibir</div>';
+        return;
+      }
+
+      wrap.innerHTML = entries.map(([nm, valor], i) => {
+        const isNeg = valor < 0;
+        const frac = valor / total;
+        const fracAbs = Math.abs(frac);
+        // Cor: valores negativos forcam vermelho; positivos seguem paleta
+        const cor = isNeg ? 'var(--red)' : PALETA[i % PALETA.length];
+        const corBg = isNeg ? 'rgba(239,68,68,0.12)' : (cor + '22');
+        const qty = c2Counts[nm] || 0;
+        // Display: "−R$ 24,5k" pra negativo (sinal antes do R$, mais limpo)
+        const valorTxt = state.camuflado
+          ? maskBRL()
+          : (isNeg ? '−' + fmtBRLCompact(Math.abs(valor)) : fmtBRLCompact(valor));
+        const pctTxt = (isNeg ? '−' : '') + (fracAbs * 100).toFixed(1) + '%';
+        return `
+          <div class="aloc-row${isNeg ? ' neg' : ''}" data-c2="${nm}" style="cursor:pointer;">
+            <div class="ico-wrap" style="background:${corBg};color:${cor}">${iconForClasse(nm)}</div>
+            <div class="body">
+              <div class="top">
+                <span class="nm">${prettyLabel(nm)}</span>
+                <span class="vl num" style="${isNeg ? 'color:var(--red)' : ''}">${valorTxt}</span>
+              </div>
+              <div class="bar"><div style="width:${(fracAbs*100).toFixed(1)}%;background:${cor}"></div></div>
+              <div class="bot">
+                <span class="pc num" style="${isNeg ? 'color:var(--red)' : ''}">${pctTxt}</span>
+                <span class="qty">${qty} ${qty === 1 ? 'ativo' : 'ativos'}</span>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+
+      // Click numa categoria → abre lista dos ativos daquela classif_2 dentro do modal.
+      // Reaproveita #modal: primeiro popula com lista; ao clicar num ativo da lista, repopula com detalhes.
+      wrap.querySelectorAll('.aloc-row').forEach(el => {
+        el.addEventListener('click', () => openCategoria(el.dataset.c2));
+      });
+    }
+
+    // Drill-down de categoria: lista os ativos daquela classif_2 dentro do modal.
+    // Cada item da lista, ao clicar, dispara openModal(ativo) — substituindo o conteudo pelo detalhe.
+    function openCategoria(c2) {
+      if (!c2) return;
+      const lista = state.ativos.filter(a => a.classif_2 === c2 && a.total_atual !== 0);
+      if (!lista.length) return;
+      // Sort por valor: positivos desc, depois negativos
+      lista.sort((a, b) => (b.total_atual || 0) - (a.total_atual || 0));
+      const total = lista.reduce((s, a) => s + (a.total_atual || 0), 0);
+      const isNeg = total < 0;
+      const totalTxt = state.camuflado
+        ? maskBRL()
+        : (isNeg ? '−' + fmtBRL(Math.abs(total)) : fmtBRL(total));
+
+      $('modal-content').innerHTML = `
+        <div class="classif" style="margin-bottom:4px;">Categoria</div>
+        <h2>${prettyLabel(c2)}</h2>
+        <div class="modal-hero-val">
+          <div class="l">${isNeg ? 'Total Devido' : 'Total da Categoria'}</div>
+          <div class="v${isNeg ? ' neg' : ''} num">${totalTxt}</div>
+          <div class="delta zero"><span class="num">${lista.length} ${lista.length === 1 ? 'ativo' : 'ativos'}</span></div>
+        </div>
+
+        <div class="card" id="cat-lista" style="margin-top:14px;">
+          ${lista.map(a => {
+            const v = pctEfetivo(a);
+            const vc = (v == null || v === 0) ? 'zero' : (v > 0 ? 'pos' : 'neg');
+            const valNeg = a.total_atual < 0;
+            const valTxt = state.camuflado
+              ? maskBRL()
+              : (valNeg ? '−' + fmtBRL(Math.abs(a.total_atual)) : show(a.total_atual));
+            return `
+              <div class="ativo-item" data-ativo-id="${a.id}">
+                <div class="left">
+                  <div class="ico-wrap">${iconForClasse(a.classif_1)}</div>
+                  <div class="info">
+                    <div class="nome">${badgesHtml(a)}${a.nome}</div>
+                    <div class="classif">${prettyLabel([a.classif_3, a.classif_4].filter(Boolean).join(' › ') || a.ticker_api || '')}</div>
+                  </div>
+                </div>
+                <div class="right">
+                  <div class="valor num" style="${valNeg ? 'color:var(--red)' : ''}">${valTxt}</div>
+                  <div class="var ${vc} num">${fmtPctMarcado(a)}</div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      `;
+      $('modal').classList.add('on');
+
+      // Click num ativo da lista → repopula o modal com o detalhe (mesma janela do Insights)
+      $('cat-lista').querySelectorAll('.ativo-item').forEach(el => {
+        el.addEventListener('click', () => {
+          openModal(state.ativos.find(x => x.id === el.dataset.ativoId));
+        });
+      });
+    }
+
+    function renderAlocacao() {
+      const total = state.dashboard.total_bruto || 1;
+      const porC1 = state.dashboard.por_classif1 || {};
+      const entries = Object.entries(porC1).filter(([_, v]) => v > 0).sort((a,b) => b[1] - a[1]);
+      const slices = entries.map(([nm, v], i) => ({
+        nome: nm, valor: v, frac: v / total,
+        cor: PALETA[i % PALETA.length]
+      }));
+
+      if (state.alocacaoViz === 'donut') {
+        $('viz-donut').style.display = 'flex';
+        $('viz-bars').style.display = 'none';
+        renderDonut(slices, total);
+      } else {
+        $('viz-donut').style.display = 'none';
+        $('viz-bars').style.display = 'block';
+        renderBars(slices);
+      }
+    }
+
+    function renderDonut(slices, total) {
+      const R = 52, r = 34, cx = 64, cy = 64;
+      const circ = 2 * Math.PI * R;
+      let acc = 0;
+      const paths = slices.map((s) => {
+        const offset = -circ * acc;
+        const len = circ * s.frac;
+        acc += s.frac;
+        return { ...s, dasharray: `${len} ${circ - len}`, offset };
+      });
+
+      const totalTxt = state.camuflado ? '•••' : fmtBRLCompact(total).replace('R$ ', '');
+      const svg = `
+        <svg class="donut-svg" width="128" height="128" viewBox="0 0 128 128">
+          <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="var(--bg-3)" stroke-width="${R-r}"/>
+          ${paths.map(s => `
+            <circle cx="${cx}" cy="${cy}" r="${R}" fill="none"
+                    stroke="${s.cor}" stroke-width="${R-r}"
+                    stroke-dasharray="${s.dasharray}"
+                    stroke-dashoffset="${s.offset}"
+                    stroke-linecap="butt"
+                    transform="rotate(-90 ${cx} ${cy})"
+                    data-classe="${s.nome}"/>
+          `).join('')}
+          <text x="${cx}" y="${cy - 4}" class="donut-center-txt">Total</text>
+          <text x="${cx}" y="${cy + 12}" class="donut-center-val">${totalTxt}</text>
+        </svg>`;
+      $('donut-wrap').innerHTML = svg;
+
+      const leg = paths.map(s => `
+        <div class="legend-row" data-classe="${s.nome}">
+          <span class="swatch" style="background:${s.cor}"></span>
+          <span class="nm">${prettyLabel(s.nome)}</span>
+          <span class="pc num">${(s.frac * 100).toFixed(1)}%</span>
+          <span class="vl num">${showC(s.valor)}</span>
+        </div>
+      `).join('');
+      $('donut-legend').innerHTML = leg;
+
+      $('donut-legend').querySelectorAll('.legend-row').forEach(el => {
+        el.addEventListener('click', () => {
+          state.ativosChip = el.dataset.classe;
+          goTo('ativos');
+        });
+      });
+    }
+
+    function renderBars(slices) {
+      const max = slices[0]?.frac || 1;
+      const html = slices.map(s => `
+        <div class="bars-row">
+          <div class="head">
+            <span class="nm">${prettyLabel(s.nome)}</span>
+            <div class="right">
+              <span class="pct num">${(s.frac * 100).toFixed(1)}%</span>
+              <span class="vl num">${showC(s.valor)}</span>
+            </div>
+          </div>
+          <div class="track">
+            <div class="fill" style="width:${(s.frac / max * 100).toFixed(1)}%; background:${s.cor};"></div>
+          </div>
+        </div>
+      `).join('');
+      $('viz-bars').innerHTML = html;
+    }
+
+    function renderInsights() {
+      const ativos = state.ativos;
+      const positivos = ativos.filter(a => a.total_atual > 0);
+      // comVar = ativos COM percentual valido (real OU nominal). pctEfetivo prioriza real.
+      const comVar = positivos.filter(a => pctEfetivo(a) != null);
+      const porC1 = state.dashboard.por_classif1 || {};
+      const total = state.dashboard.total_bruto || 1;
+
+      const maior = positivos.reduce((m, a) => (!m || a.total_atual > m.total_atual) ? a : m, null);
+      const maiorGanho = comVar.reduce((m, a) => (!m || pctEfetivo(a) > pctEfetivo(m)) ? a : m, null);
+      const maiorPerda = comVar.reduce((m, a) => (!m || pctEfetivo(a) < pctEfetivo(m)) ? a : m, null);
+      const concEntry = Object.entries(porC1).filter(([_,v]) => v>0).sort((a,b)=>b[1]-a[1])[0];
+      const concTxt = concEntry ? `${prettyLabel(concEntry[0])} (${(concEntry[1]/total*100).toFixed(0)}%)` : '—';
+
+      let liq = 0;
+      positivos.forEach(a => { if (isLiquido(a)) liq += a.total_atual; });
+      const liqRatio = (liq / total * 100);
+      const liqColor = liqRatio < 15 ? 'red' : (liqRatio < 25 ? 'amber' : 'blue');
+
+      const verdes = comVar.filter(a => pctEfetivo(a) > 0).length;
+      const ratioVerdes = comVar.length > 0 ? (verdes / comVar.length * 100).toFixed(0) : 0;
+
+      const grid = $('insights-grid');
+      grid.innerHTML = `
+        ${maior ? `
+          <div class="insight purple" data-ativo="${maior.id}">
+            <div class="ico">${ICONS.crown}</div>
+            <div class="txt">
+              <div class="t">Maior Posição</div>
+              <div class="v">${maior.nome}</div>
+              <div class="s num">${show(maior.total_atual)}</div>
+            </div>
+          </div>` : ''}
+        <div class="insight cyan">
+          <div class="ico">${ICONS.layers}</div>
+          <div class="txt">
+            <div class="t">Concentração</div>
+            <div class="v">${concTxt}</div>
+            <div class="s num">${concEntry ? show(concEntry[1]) : ''}</div>
+          </div>
+        </div>
+        <div class="insight ${liqColor}">
+          <div class="ico">${ICONS.droplet}</div>
+          <div class="txt">
+            <div class="t">Liquidez</div>
+            <div class="v num">${liqRatio.toFixed(1)}%</div>
+            <div class="s num">${show(liq)}</div>
+          </div>
+        </div>
+        ${maiorGanho && pctEfetivo(maiorGanho) > 0 ? `
+          <div class="insight green" data-ativo="${maiorGanho.id}">
+            <div class="ico">${ICONS.trending_up}</div>
+            <div class="txt">
+              <div class="t">Maior Ganho${pctEhReal(maiorGanho) ? ' (real)' : ''}</div>
+              <div class="v">${maiorGanho.nome}</div>
+              <div class="s num">${fmtPctMarcado(maiorGanho)}</div>
+            </div>
+          </div>` : ''}
+        ${maiorPerda && pctEfetivo(maiorPerda) < 0 ? `
+          <div class="insight red" data-ativo="${maiorPerda.id}">
+            <div class="ico">${ICONS.trending_dn}</div>
+            <div class="txt">
+              <div class="t">Maior Perda${pctEhReal(maiorPerda) ? ' (real)' : ''}</div>
+              <div class="v">${maiorPerda.nome}</div>
+              <div class="s num">${fmtPctMarcado(maiorPerda)}</div>
+            </div>
+          </div>` : ''}
+        <div class="insight amber">
+          <div class="ico">${ICONS.scale}</div>
+          <div class="txt">
+            <div class="t">Em Alta</div>
+            <div class="v num">${verdes} / ${comVar.length}</div>
+            <div class="s num">${ratioVerdes}% positivos</div>
+          </div>
+        </div>
+      `;
+
+      grid.querySelectorAll('[data-ativo]').forEach(el => {
+        el.addEventListener('click', () => {
+          openModal(state.ativos.find(x => x.id === el.dataset.ativo));
+        });
+      });
+    }
+
+    function renderTopMovers() {
+      // Top movers: prioriza % real quando disponivel (evita comparar nominal de imovel com nominal de acao)
+      const comVar = state.ativos.filter(a => pctEfetivo(a) != null && a.total_atual > 0);
+      const sorted = [...comVar].sort((a, b) => Math.abs(pctEfetivo(b)) - Math.abs(pctEfetivo(a))).slice(0, 5);
+      const wrap = $('top-movers');
+      if (!sorted.length) { wrap.innerHTML = '<div class="empty">Sem variações registradas</div>'; return; }
+      wrap.innerHTML = sorted.map(a => {
+        const v = pctEfetivo(a);
+        const vc = v === 0 ? 'zero' : (v > 0 ? 'pos' : 'neg');
+        return `
+          <div class="ativo-item" data-ativo-id="${a.id}">
+            <div class="left">
+              <div class="ico-wrap">${iconForClasse(a.classif_1)}</div>
+              <div class="info">
+                <div class="nome">${a.nome}</div>
+                <div class="classif">${prettyLabel([a.classif_1, a.classif_2].filter(Boolean).join(' › '))}</div>
+              </div>
+            </div>
+            <div class="right">
+              <div class="valor num">${show(a.total_atual)}</div>
+              <div class="var ${vc} num">${fmtPctMarcado(a)}</div>
+            </div>
+          </div>`;
+      }).join('');
+      wrap.querySelectorAll('.ativo-item').forEach(el => {
+        el.addEventListener('click', () => openModal(state.ativos.find(x => x.id === el.dataset.ativoId)));
+      });
+    }
+
+    function renderChipsC1() {
+      const positivos = state.ativos.filter(a => a.total_atual > 0);
+      const porC1 = {};
+      positivos.forEach(a => {
+        const c1 = a.classif_1 || '—';
+        porC1[c1] = (porC1[c1] || 0) + 1;
+      });
+      const classes = Object.keys(porC1).sort();
+      const wrap = $('chips-c1');
+      wrap.innerHTML = `
+        <button class="chip ${state.ativosChip === '' ? 'active' : ''}" data-c="">
+          ${ICONS.grid} Todos <span class="count">${positivos.length}</span>
+        </button>` + classes.map(c => `
+          <button class="chip ${state.ativosChip === c ? 'active' : ''}" data-c="${c}">
+            ${iconForClasse(c)} ${prettyLabel(c)} <span class="count">${porC1[c]}</span>
+          </button>
+        `).join('');
+      wrap.querySelectorAll('.chip').forEach(ch => {
+        ch.addEventListener('click', () => {
+          state.ativosChip = ch.dataset.c;
+          wrap.querySelectorAll('.chip').forEach(x => x.classList.toggle('active', x === ch));
+          renderAtivosView();
+        });
+      });
+    }
+
+    function filteredAtivos() {
+      const termo = ($('search-ativos').value || '').toLowerCase().trim();
+      return state.ativos.filter(a => {
+        if (a.total_atual === 0 && a.variacao_pct === null && !a.qtd) return false;
+        if (a.total_atual < 0) return false;
+        if (termo && !(a.nome || '').toLowerCase().includes(termo) &&
+            !(a.ticker_api || '').toLowerCase().includes(termo)) return false;
+        if (state.ativosChip && a.classif_1 !== state.ativosChip) return false;
+        return true;
+      });
+    }
+
+    function sortAtivos(lista) {
+      const s = state.ativosSort;
+      const arr = [...lista];
+      if (s === 'valor-desc') arr.sort((a,b) => (b.total_atual||0) - (a.total_atual||0));
+      else if (s === 'valor-asc') arr.sort((a,b) => (a.total_atual||0) - (b.total_atual||0));
+      else if (s === 'var-desc') arr.sort((a,b) => (pctEfetivo(b) ?? -Infinity) - (pctEfetivo(a) ?? -Infinity));
+      else if (s === 'var-asc') arr.sort((a,b) => (pctEfetivo(a) ?? Infinity) - (pctEfetivo(b) ?? Infinity));
+      else if (s === 'nome-asc') arr.sort((a,b) => (a.nome||'').localeCompare(b.nome||''));
+      return arr;
+    }
+
+    function renderAtivosView() {
+      const lista = filteredAtivos();
+      if (!lista.length) {
+        $('ativos-list').innerHTML = `<div class="empty"><div class="ico">${ICONS.ban}</div>Nenhum ativo encontrado</div>`;
+        return;
+      }
+      if (state.ativosMode === 'hier') renderAtivosHier(lista);
+      else if (state.ativosMode === 'lista') renderAtivosLista(sortAtivos(lista));
+      else renderAtivosCompacto(sortAtivos(lista));
+    }
+
+    function badgesHtml(a) {
+      const out = [];
+      if (a.preco_atual_fonte === 'api') out.push('<span class="badge api">API</span>');
+      else if (a.preco_atual_fonte === 'manual') out.push('<span class="badge manual">MAN</span>');
+      if (isLiquido(a)) out.push('<span class="badge liq">LIQ</span>');
+      else out.push('<span class="badge imob">IMOB</span>');
+      return out.join('');
+    }
+
+    function renderAtivosHier(lista) {
+      const grupo = {};
+      lista.forEach(a => {
+        const c1 = a.classif_1 || '—';
+        const c2 = a.classif_2 || '—';
+        grupo[c1] = grupo[c1] || {};
+        grupo[c1][c2] = grupo[c1][c2] || [];
+        grupo[c1][c2].push(a);
+      });
+      const total = lista.reduce((s,a) => s + (a.total_atual || 0), 0) || 1;
+
+      const c1Totais = Object.entries(grupo).map(([c1, c2s]) => {
+        const soma = Object.values(c2s).flat().reduce((s, a) => s + (a.total_atual || 0), 0);
+        return { c1, c2s, soma };
+      }).sort((a, b) => Math.abs(b.soma) - Math.abs(a.soma));
+
+      const html = c1Totais.map(({ c1, c2s, soma }) => {
+        const pct = (Math.abs(soma) / total * 100);
+        const itensHtml = Object.entries(c2s)
+          .sort((a, b) => {
+            const sa = a[1].reduce((s, x) => s + (x.total_atual || 0), 0);
+            const sb = b[1].reduce((s, x) => s + (x.total_atual || 0), 0);
+            return Math.abs(sb) - Math.abs(sa);
+          })
+          .map(([c2, arr]) => {
+            const soma2 = arr.reduce((s, a) => s + (a.total_atual || 0), 0);
+            const pct2 = (Math.abs(soma2) / total * 100);
+            // Pct dentro do classif_1 (perfil de alocacao): pra um analista, o que importa
+            // dentro do "FINANCEIRO" e como esta dividido entre RV/RF/Caixa, nao versus o total
+            // do patrimonio (que mistura imovel/carro). Destaque maior nesse %.
+            const pct2In = soma !== 0 ? (Math.abs(soma2) / Math.abs(soma) * 100) : 0;
+            const ativosHtml = arr.map(a => {
+              const v = pctEfetivo(a);
+              const vc = (v == null || v === 0) ? 'zero' : (v > 0 ? 'pos' : 'neg');
+              return `
+                <div class="ativo-item" data-ativo-id="${a.id}">
+                  <div class="left">
+                    <div class="ico-wrap">${iconForClasse(a.classif_1)}</div>
+                    <div class="info">
+                      <div class="nome">${badgesHtml(a)}${a.nome}</div>
+                      <div class="classif">${prettyLabel([a.classif_3, a.classif_4].filter(Boolean).join(' › ') || a.ticker_api || '')}</div>
+                    </div>
+                  </div>
+                  <div class="right">
+                    <div class="valor num">${show(a.total_atual)}</div>
+                    <div class="var ${vc} num">${fmtPctMarcado(a)}</div>
+                  </div>
+                </div>`;
+            }).join('');
+            return `
+              <div>
+                <div class="subcat-head">
+                  <div class="row1">
+                    <span class="title">${prettyLabel(c2)}</span>
+                    <span class="vl">${show(soma2)}</span>
+                  </div>
+                  <div class="row2">
+                    <span class="metric primary">
+                      <span class="m-val">${pct2In.toFixed(1)}%</span>
+                      <span class="m-lbl">perfil</span>
+                    </span>
+                    <span class="metric muted">
+                      <span class="m-val">${pct2.toFixed(1)}%</span>
+                      <span class="m-lbl">total</span>
+                    </span>
+                  </div>
+                </div>
+                ${ativosHtml}
+              </div>`;
+          }).join('');
+
+        return `
+          <div class="drilldown-row">
+            <div class="head">
+              <div>
+                <div class="head-inner" style="display:flex;align-items:center;gap:4px;">
+                  <span class="nome">${prettyLabel(c1)}</span>
+                  <span class="chev">${ICONS.chev_right}</span>
+                </div>
+                <div class="pct num">${pct.toFixed(1)}% · ${Object.values(c2s).flat().length} itens</div>
+              </div>
+              <div class="vl num">${show(soma)}</div>
+            </div>
+            <div class="bar"><div style="width:${Math.min(pct, 100)}%"></div></div>
+            <div class="drilldown-children">${itensHtml}</div>
+          </div>`;
+      }).join('');
+
+      $('ativos-list').innerHTML = html;
+
+      $('ativos-list').querySelectorAll('.drilldown-row').forEach(row => {
+        row.querySelector('.head').addEventListener('click', (e) => {
+          if (!e.target.closest('.ativo-item')) row.classList.toggle('expanded');
+        });
+      });
+      $('ativos-list').querySelectorAll('.ativo-item').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openModal(state.ativos.find(x => x.id === el.dataset.ativoId));
+        });
+      });
+    }
+
+    function renderAtivosLista(lista) {
+      const html = `<div class="card">${lista.map(a => {
+        const v = pctEfetivo(a);
+        const vc = (v == null || v === 0) ? 'zero' : (v > 0 ? 'pos' : 'neg');
+        return `
+          <div class="ativo-item" data-ativo-id="${a.id}">
+            <div class="left">
+              <div class="ico-wrap">${iconForClasse(a.classif_1)}</div>
+              <div class="info">
+                <div class="nome">${badgesHtml(a)}${a.nome}</div>
+                <div class="classif">${prettyLabel([a.classif_1, a.classif_2].filter(Boolean).join(' › '))}</div>
+              </div>
+            </div>
+            <div class="right">
+              <div class="valor num">${show(a.total_atual)}</div>
+              <div class="var ${vc} num">${fmtPctMarcado(a)}</div>
+            </div>
+          </div>`;
+      }).join('')}</div>`;
+      $('ativos-list').innerHTML = html;
+      $('ativos-list').querySelectorAll('.ativo-item').forEach(el => {
+        el.addEventListener('click', () => openModal(state.ativos.find(x => x.id === el.dataset.ativoId)));
+      });
+    }
+
+    function renderAtivosCompacto(lista) {
+      const html = `<div class="compact-grid">${lista.map(a => {
+        const v = pctEfetivo(a);
+        // FIX: v exatamente 0 deve ser 'zero' (cinza), nao 'pos' (verde).
+        // Saldos parados (conta corrente, poupanca) tem variacao = 0 e estavam saindo verdes.
+        const vc = (v == null || v === 0) ? 'zero' : (v > 0 ? 'pos' : 'neg');
+        // Quando nao tem variacao (saldos sem ticker_api), mostra "—" em cinza no lugar de vazio.
+        // Mantem layout simetrico (vl esquerda, vr direita) entre todos os cards.
+        const pctTxt = v == null ? '<span style="color:var(--text-5)">—</span>' : fmtPctMarcado(a, 1);
+        return `
+          <div class="compact-card ${a.total_atual<0?'neg':''}" data-ativo-id="${a.id}" title="${a.nome}">
+            <div class="top">
+              <div class="ico-wrap">${iconForClasse(a.classif_1)}</div>
+              <div class="title">
+                <div class="nm" title="${a.nome}">${a.nome}</div>
+                <div class="cl">${prettyLabel(a.classif_1 || '—')}</div>
+              </div>
+            </div>
+            <div class="bot">
+              <div class="vl num">${showC(a.total_atual)}</div>
+              <div class="vr var ${vc} num">${pctTxt}</div>
+            </div>
+          </div>`;
+      }).join('')}</div>`;
+      $('ativos-list').innerHTML = html;
+      $('ativos-list').querySelectorAll('.compact-card').forEach(el => {
+        el.addEventListener('click', () => openModal(state.ativos.find(x => x.id === el.dataset.ativoId)));
+      });
+    }
+
+    function renderPassivos() {
+      const passivos = state.ativos.filter(a => a.total_atual < 0);
+      const totalDividas = passivos.reduce((s, a) => s + a.total_atual, 0);
+      const total = state.dashboard.total_bruto || 1;
+      const pct = Math.abs(totalDividas) / total * 100;
+
+      $('passivos-total').textContent = show(Math.abs(totalDividas));
+      $('passivos-pct').textContent = pct.toFixed(1) + '% do patrimonio bruto';
+
+      const wrap = $('passivos-list');
+      if (!passivos.length) {
+        wrap.innerHTML = `<div class="empty"><div class="ico" style="background:var(--green-bg);color:var(--green);">${ICONS.zap}</div>Nenhuma divida cadastrada</div>`;
+        return;
+      }
+      wrap.innerHTML = passivos.map(a => `
+        <div class="ativo-item" data-ativo-id="${a.id}">
+          <div class="left">
+            <div class="ico-wrap" style="background:var(--red-bg);color:var(--red);">${ICONS.alert}</div>
+            <div class="info">
+              <div class="nome"><span class="badge div">DÍVIDA</span>${a.nome}</div>
+              <div class="classif">${prettyLabel([a.classif_1, a.classif_2, a.classif_3].filter(Boolean).join(' › '))}</div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="valor neg num">${show(Math.abs(a.total_atual))}</div>
+          </div>
+        </div>
+      `).join('');
+      wrap.querySelectorAll('.ativo-item').forEach(el => {
+        el.addEventListener('click', () => openModal(state.ativos.find(x => x.id === el.dataset.ativoId)));
+      });
+    }
+
+    function renderHistorico() {
+      let snaps = (state.snapshots || []).filter(s => s.total_bruto != null).sort((a, b) => (a.data + '').localeCompare(b.data + ''));
+
+      if (state.historicoPeriodo !== 'todo') {
+        const meses = Number(state.historicoPeriodo);
+        const corte = new Date();
+        corte.setMonth(corte.getMonth() - meses);
+        const corteStr = corte.toISOString().slice(0, 10);
+        snaps = snaps.filter(s => String(s.data) >= corteStr);
+      }
+
+      if (snaps.length < 2) {
+        $('historico-empty').style.display = 'block';
+        $('line-svg').style.display = 'none';
+        $('line-legend').style.display = 'none';
+        $('hist-stats').style.display = 'none';
+        return;
+      }
+      $('historico-empty').style.display = 'none';
+      $('line-svg').style.display = 'block';
+      $('line-legend').style.display = 'flex';
+      $('hist-stats').style.display = 'grid';
+
+      const W = 400, H = 200, padL = 40, padR = 10, padT = 10, padB = 24;
+      const serie = state.historicoSerie;
+      const valsArr = [];
+      if (serie === 'bruto' || serie === 'ambos') snaps.forEach(s => valsArr.push(s.total_bruto));
+      if (serie === 'liquido' || serie === 'ambos') snaps.forEach(s => valsArr.push(s.total_liquido));
+      const minV = Math.min(...valsArr), maxV = Math.max(...valsArr);
+      const range = (maxV - minV) || 1;
+      const x = (i) => padL + ((W - padL - padR) * i / (snaps.length - 1));
+      const y = (v) => padT + (H - padT - padB) * (1 - (v - minV) / range);
+
+      const pathBruto = snaps.map((s, i) => (i === 0 ? 'M' : 'L') + x(i) + ' ' + y(s.total_bruto)).join(' ');
+      const pathLiq   = snaps.map((s, i) => (i === 0 ? 'M' : 'L') + x(i) + ' ' + y(s.total_liquido)).join(' ');
+
+      const labelsX = snaps.map((s, i) => {
+        if (snaps.length > 6 && i % Math.ceil(snaps.length / 6) !== 0 && i !== snaps.length - 1) return '';
+        const d = String(s.data).slice(5);
+        return `<text x="${x(i)}" y="${H - 8}" fill="var(--text-4)" font-size="9" font-family="Inter" text-anchor="middle" font-weight="500">${d}</text>`;
+      }).join('');
+
+      const yTicks = [minV, (minV + maxV) / 2, maxV].map(v => {
+        const yv = y(v);
+        return `
+          <line x1="${padL}" y1="${yv}" x2="${W - padR}" y2="${yv}" stroke="var(--bg-3)" stroke-dasharray="2,3"/>
+          <text x="${padL - 4}" y="${yv + 3}" fill="var(--text-4)" font-size="9" font-family="Inter" font-weight="500" text-anchor="end">${Math.round(v / 1000)}k</text>
+        `;
+      }).join('');
+
+      let linhas = '', pontos = '', area = '';
+      if (serie === 'ambos' || serie === 'liquido') {
+        linhas += `<path d="${pathLiq}" fill="none" stroke="var(--text-4)" stroke-width="1.5"/>`;
+      }
+      if (serie === 'ambos' || serie === 'bruto') {
+        const areaPath = pathBruto + ` L ${x(snaps.length-1)} ${H-padB} L ${padL} ${H-padB} Z`;
+        area = `<path d="${areaPath}" fill="url(#gradBruto)"/>`;
+        linhas += `<path d="${pathBruto}" fill="none" stroke="var(--green)" stroke-width="2"/>`;
+        pontos = snaps.map((s, i) => `<circle cx="${x(i)}" cy="${y(s.total_bruto)}" r="3" fill="var(--green)"/>`).join('');
+      }
+
+      $('line-svg').innerHTML = `
+        <defs>
+          <linearGradient id="gradBruto" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#10b981" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        ${yTicks}
+        ${area}
+        ${linhas}
+        ${pontos}
+        ${labelsX}
+      `;
+
+      const first = snaps[0], last = snaps[snaps.length - 1];
+      const deltaBruto = last.total_bruto - first.total_bruto;
+      const deltaPct = deltaBruto / (first.total_bruto || 1);
+      const deltaCls = deltaBruto > 0 ? 'pos' : (deltaBruto < 0 ? 'neg' : '');
+      $('hist-stats').innerHTML = `
+        <div class="cell"><div class="l">Inicio</div><div class="v num">${showC(first.total_bruto)}</div></div>
+        <div class="cell"><div class="l">Atual</div><div class="v num">${showC(last.total_bruto)}</div></div>
+        <div class="cell"><div class="l">Variação</div><div class="v num ${deltaCls}">${fmtPct(deltaPct, 1)}</div></div>
+      `;
+    }
+
+    function renderAlvo() {
+      const porC1 = state.dashboard.por_classif1 || {};
+      const classes = [...new Set([...Object.keys(porC1), ...Object.keys(state.alvoPercentuais)])]
+        .filter(c => porC1[c] >= 0);
+      const total = state.dashboard.total_bruto || 1;
+
+      if (Object.keys(state.alvoPercentuais).length === 0) {
+        classes.forEach(c => {
+          state.alvoPercentuais[c] = Math.round((porC1[c] || 0) / total * 100);
+        });
+        saveAlvo();
+      }
+
+      const wrap = $('alvo-list');
+      wrap.innerHTML = classes.map(c => {
+        const realPct = ((porC1[c] || 0) / total * 100);
+        const alvoPct = state.alvoPercentuais[c] != null ? state.alvoPercentuais[c] : 0;
+        const desvio = realPct - alvoPct;
+        const absDesv = Math.abs(desvio);
+        const cls = absDesv < 3 ? 'ok' : (absDesv < 8 ? 'warn' : 'bad');
+        const desvioStr = (desvio >= 0 ? '+' : '') + desvio.toFixed(1) + 'pp';
+        return `
+          <div class="target-row" data-classe="${c}">
+            <div class="head">
+              <div class="nome">${prettyLabel(c)}</div>
+              <div class="desvio ${cls} num">${desvioStr}</div>
+            </div>
+            <div class="spec num">Real: ${realPct.toFixed(1)}% · Alvo: <span class="alvo-val">${alvoPct}</span>%</div>
+            <input type="range" min="0" max="100" step="1" value="${alvoPct}" class="alvo-slider">
+            <div class="nums">
+              <span>0%</span>
+              <span class="num">${desvio < 0 ? 'Aportar: ' : 'Reduzir: '}${show(Math.abs((alvoPct / 100 * total) - (porC1[c] || 0)))}</span>
+              <span>100%</span>
+            </div>
+          </div>`;
+      }).join('');
+
+      wrap.querySelectorAll('.target-row').forEach(row => {
+        const classe = row.dataset.classe;
+        const slider = row.querySelector('.alvo-slider');
+        const out = row.querySelector('.alvo-val');
+        slider.addEventListener('input', () => {
+          out.textContent = slider.value;
+          state.alvoPercentuais[classe] = Number(slider.value);
+          saveAlvo();
+          updateTargetSum();
+          renderAlvoRow(row);
+        });
+      });
+      updateTargetSum();
+    }
+
+    function renderAlvoRow(row) {
+      const classe = row.dataset.classe;
+      const porC1 = state.dashboard.por_classif1 || {};
+      const total = state.dashboard.total_bruto || 1;
+      const realPct = ((porC1[classe] || 0) / total * 100);
+      const alvoPct = state.alvoPercentuais[classe] || 0;
+      const desvio = realPct - alvoPct;
+      const absDesv = Math.abs(desvio);
+      const cls = absDesv < 3 ? 'ok' : (absDesv < 8 ? 'warn' : 'bad');
+      const desv = row.querySelector('.desvio');
+      desv.className = 'desvio num ' + cls;
+      desv.textContent = (desvio >= 0 ? '+' : '') + desvio.toFixed(1) + 'pp';
+    }
+
+    function updateTargetSum() {
+      const soma = Object.values(state.alvoPercentuais).reduce((s, v) => s + Number(v), 0);
+      const el = $('target-sum');
+      el.textContent = `Soma dos alvos: ${soma}%` + (soma === 100 ? ' ✓' : ' (deve ser 100%)');
+      el.className = 'target-sum ' + (soma === 100 ? 'ok' : 'bad');
+    }
+
+    // ==================== MODAL ====================
+    // Renderiza bloco de Ganho Real (IPCA) dentro do modal de detalhe do ativo.
+    // Backend so popula a.ganho_real quando calc_real=TRUE e tem data_aquis valida.
+    // Formula usada no backend: real = (1 + nominal) / (1 + ipca) - 1 (precisa, nao subtracao).
+    function renderGanhoReal(a) {
+      const g = a.ganho_real;
+      const nomCls = g.nominal_pct >= 0 ? 'pos' : 'neg';
+      const realCls = g.real_pct >= 0 ? 'pos' : 'neg';
+      // valor de aquisicao corrigido = poder de compra equivalente hoje do que voce pagou na epoca
+      return `
+        <div class="ganho-real-block">
+          <div class="grb-title">${ICONS.scale} Ganho Real (descontada inflação)</div>
+          <div class="grb-grid">
+            <div class="cell">
+              <div class="l">Comprou em</div>
+              <div class="v">${fmtDataAquis(a.data_aquis)}</div>
+            </div>
+            <div class="cell">
+              <div class="l">Valor pago</div>
+              <div class="v num">${show(g.valor_aquisicao)}</div>
+            </div>
+            <div class="cell">
+              <div class="l">Valor hoje</div>
+              <div class="v num">${show(g.valor_atual)}</div>
+            </div>
+            <div class="cell">
+              <div class="l">Equivalente hoje*</div>
+              <div class="v num">${show(g.valor_aquisicao_corrigido)}</div>
+            </div>
+          </div>
+          <div class="grb-pcts">
+            <div class="grb-pct">
+              <div class="l">Nominal</div>
+              <div class="v ${nomCls} num">${fmtPct(g.nominal_pct)}</div>
+            </div>
+            <div class="grb-pct">
+              <div class="l">IPCA periodo</div>
+              <div class="v ipca num">${fmtPct(g.ipca_pct)}</div>
+            </div>
+            <div class="grb-pct big">
+              <div class="l">Ganho Real</div>
+              <div class="v ${realCls} num">${fmtPct(g.real_pct)}</div>
+            </div>
+          </div>
+          <div class="grb-foot">*o que você pagou, corrigido pela inflação do período (IPCA / BCB)</div>
+        </div>`;
+    }
+
+    function openModal(a) {
+      if (!a) return;
+      const classif = prettyLabel([a.classif_1, a.classif_2, a.classif_3, a.classif_4].filter(Boolean).join(' › '));
+      const moeda = a.moeda || 'BRL';
+      // Modal: hero usa pct efetivo (real se calc_real, senao nominal)
+      const pctMod = pctEfetivo(a);
+      const deltaCls = pctMod == null ? 'zero' : (pctMod >= 0 ? '' : 'neg');
+      const deltaIcon = pctMod == null ? '' : (pctMod >= 0 ? ICONS.trending_up : ICONS.trending_dn);
+      const deltaTxt = pctMod == null ? 'Sem variação' : (fmtPct(pctMod) + (pctEhReal(a) ? ' real' : ''));
+      const negCls = a.total_atual < 0 ? ' neg' : '';
+      const badges = badgesHtml(a);
+
+      $('modal-content').innerHTML = `
+        <div class="modal-badges">${badges}</div>
+        <h2>${a.nome}</h2>
+        <div class="classif">${classif}</div>
+
+        <div class="modal-hero-val">
+          <div class="l">${a.total_atual < 0 ? 'Dívida Atual' : 'Total Atual'}</div>
+          <div class="v${negCls} num">${show(Math.abs(a.total_atual))}</div>
+          ${pctMod != null ? `<div class="delta ${deltaCls}">${deltaIcon}<span class="num">${deltaTxt}</span></div>` : ''}
+        </div>
+
+        <div class="modal-grid">
+          <div class="cell">
+            <div class="l">Quantidade</div>
+            <div class="v num">${a.qtd != null ? Number(a.qtd).toLocaleString('pt-BR') : '—'}</div>
+          </div>
+          <div class="cell">
+            <div class="l">Moeda</div>
+            <div class="v">${moeda}</div>
+          </div>
+          <div class="cell">
+            <div class="l">Preco Atual</div>
+            <div class="v num">${a.preco_atual != null ? (moeda + ' ' + Number(a.preco_atual).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })) : '—'}</div>
+          </div>
+          <div class="cell">
+            <div class="l">Preco Medio</div>
+            <div class="v num">${a.preco_medio ? (moeda + ' ' + Number(a.preco_medio).toLocaleString('pt-BR', { minimumFractionDigits: 2 })) : '—'}</div>
+          </div>
+          <div class="cell">
+            <div class="l">Fonte</div>
+            <div class="v" style="text-transform:uppercase;font-size:11px;">${a.preco_atual_fonte || '—'}</div>
+          </div>
+          <div class="cell">
+            <div class="l">Ticker API</div>
+            <div class="v">${a.ticker_api || '—'}</div>
+          </div>
+          ${a.observacao ? `<div class="cell full"><div class="l">Observação</div><div class="v" style="font-size:12px;">${a.observacao}</div></div>` : ''}
+        </div>
+
+        ${a.ganho_real ? renderGanhoReal(a) : ''}
+
+        <div class="classif-table">
+          <div class="row"><span class="k">Classe 1</span><span class="v">${prettyLabel(a.classif_1 || '—')}</span></div>
+          <div class="row"><span class="k">Classe 2</span><span class="v">${prettyLabel(a.classif_2 || '—')}</span></div>
+          <div class="row"><span class="k">Classe 3</span><span class="v">${prettyLabel(a.classif_3 || '—')}</span></div>
+          <div class="row"><span class="k">Classe 4</span><span class="v">${prettyLabel(a.classif_4 || '—')}</span></div>
+          <div class="row"><span class="k">Liquidez</span><span class="v">${isLiquido(a) ? 'Líquido' : 'Imobilizado'}</span></div>
+        </div>
+      `;
+      $('modal').classList.add('on');
+    }
+    function closeModal() { $('modal').classList.remove('on'); }
+    $('modal').addEventListener('click', (e) => {
+      if (e.target.id === 'modal') closeModal();
+    });
+
+    // ==================== ACOES ====================
+    $('btn-camuflagem').addEventListener('click', () => {
+      state.camuflado = !state.camuflado;
+      renderAll();
+    });
+    $('hero-card').addEventListener('click', () => {
+      state.camuflado = !state.camuflado;
+      renderAll();
+    });
+
+    $('btn-refresh').addEventListener('click', async () => {
+      const btn = $('btn-refresh');
+      btn.classList.add('loading');
+      try {
+        await api('atualizar_cotacoes');
+        await load();
+        toast('Cotações atualizadas');
+      } catch (e) {
+        toast('Erro: ' + e.message, 3500, true);
+      } finally {
+        btn.classList.remove('loading');
+      }
+    });
+
+    $('btn-logout').addEventListener('click', () => {
+      $('app').style.display = 'none';
+      $('login-screen').style.display = 'flex';
+      senhaInput.value = '';
+      setTimeout(() => senhaInput.focus(), 100);
+    });
+
+    $$('nav.bottom-nav button').forEach(b => {
+      b.addEventListener('click', () => goTo(b.dataset.nav));
+    });
+    $$('[data-goto]').forEach(b => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      goTo(b.dataset.goto);
+    }));
+    function goTo(v) {
+      state.view = v;
+      $$('.view').forEach(el => el.classList.toggle('on', el.dataset.view === v));
+      $$('nav.bottom-nav button').forEach(b => b.classList.toggle('active', b.dataset.nav === v));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (v === 'ativos') renderChipsC1();
+    }
+
+    $('viz-toggle-alocacao').querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        state.alocacaoViz = b.dataset.viz;
+        $('viz-toggle-alocacao').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+        renderAlocacao();
+      });
+    });
+
+    $('viz-toggle-ativos').querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        state.ativosMode = b.dataset.mode;
+        $('viz-toggle-ativos').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+        renderAtivosView();
+      });
+    });
+
+    $('viz-toggle-serie').querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        state.historicoSerie = b.dataset.serie;
+        $('viz-toggle-serie').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+        renderHistorico();
+      });
+    });
+
+    $('chips-periodo').querySelectorAll('.chip').forEach(c => {
+      c.addEventListener('click', () => {
+        state.historicoPeriodo = c.dataset.p;
+        $('chips-periodo').querySelectorAll('.chip').forEach(x => x.classList.toggle('active', x === c));
+        renderHistorico();
+      });
+    });
+
+    $('sort-ativos').addEventListener('change', () => {
+      state.ativosSort = $('sort-ativos').value;
+      renderAtivosView();
+    });
+
+    $('search-ativos').addEventListener('input', renderAtivosView);
+
+    // SW: só registra em ambiente real (não em preview/sandbox do Claude).
+    // Evita erro 404 quando o app é servido de domínios onde sw.js não existe.
+    const isSandboxPreview = /claudeusercontent|claudeartifacts|sandbox/i.test(location.hostname);
+    if ('serviceWorker' in navigator && !isSandboxPreview && location.protocol !== 'file:') {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {}); // silenciado de propósito
+      });
+    }
+  </script>
+</body>
+</html>
