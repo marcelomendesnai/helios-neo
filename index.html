@@ -1343,6 +1343,34 @@
         <div id="alvo-list"></div>
         <div class="target-sum" id="target-sum"></div>
       </div>
+
+      <!-- ============== FUNDAMENTOS (2026-07-19) ============== -->
+      <div class="view" data-view="fundamentos">
+        <div class="section-title">
+          <span>Fundamentos</span>
+          <button class="chip" id="btn-abrir-parametros" style="display:flex;align-items:center;gap:5px;">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+            Parâmetros
+          </button>
+        </div>
+        <div id="fundamentos-empty" class="empty" style="display:none;">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+          <div>Nenhuma ação com ticker cadastrada ainda.</div>
+        </div>
+        <div class="card" id="fundamentos-list"></div>
+      </div>
+
+      <!-- ============== PARAMETROS (2026-07-19) ============== -->
+      <div class="view" data-view="parametros">
+        <div class="section-title">
+          <span>Parâmetros por setor</span>
+          <button class="chip" data-goto="fundamentos">Voltar</button>
+        </div>
+        <div style="font-size:12px;color:var(--text-4);margin-bottom:14px;padding:0 2px;font-weight:500;">
+          Corte pra verde e amarelo de cada indicador. Setor sem calibração usa o padrão genérico até você (ou o Gemini na primeira vez) ajustar.
+        </div>
+        <div id="parametros-list"></div>
+      </div>
     </main>
 
     <nav class="bottom-nav">
@@ -1353,6 +1381,10 @@
       <button data-nav="ativos">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4Z"/></svg>
         <span>Ativos</span>
+      </button>
+      <button data-nav="fundamentos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span>Fund.</span>
       </button>
       <button data-nav="passivos">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
@@ -1389,7 +1421,7 @@
     // e no console (F12) pra conferencia rapida. TODA VEZ que fizer deploy de algo
     // novo, sobe esse numero E o CACHE_NAME no sw.js (mesmo numero nos dois, pra
     // saber na hora qual versao ta rodando e forcar o navegador a buscar a nova).
-    const APP_VERSION = 'v5.4.1';
+    const APP_VERSION = 'v5.5';
     console.log('[Helios Neo] build ' + APP_VERSION);
     document.querySelectorAll('.build-tag').forEach((el) => { el.textContent = APP_VERSION; });
 
@@ -1491,6 +1523,11 @@
       ativosChip: '',
       historicoSerie: 'ambos',
       historicoPeriodo: 'todo',
+      fundamentos: [],
+      fundamentosLoaded: false,
+      indicadoresMeta: {},
+      parametros: [],
+      parametrosLoaded: false,
     };
 
     // ==================== HELPERS ====================
@@ -2772,6 +2809,221 @@
 
     $('btn-add-ativo').addEventListener('click', () => openEditForm(null));
 
+    // ==================== FUNDAMENTOS (2026-07-19) ====================
+    // Matriz de fundamentos das ações (classif_4='ACAO'). Carrega sob demanda
+    // (só quando o Marcelo entra na aba, não no load() geral — a 1a chamada de
+    // um setor novo dispara geração via Gemini no backend e pode demorar uns
+    // segundos). Ver functions/api/fundamentos.js + _lib/gemini.js + _lib/fundamentos.js.
+
+    const SUFIXO_INDICADOR = {
+      pl: 'x', pvp: 'x', net_debt_ebitda: 'x', current_ratio: 'x',
+      roe: '%', roa: '%', net_margin: '%', cagr_revenue_5y: '%', cagr_earnings_5y: '%', dividend_yield: '%'
+    };
+    function fmtIndicador(ind, v) {
+      if (v === null || v === undefined) return '—';
+      const suf = SUFIXO_INDICADOR[ind] || '';
+      return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + suf;
+    }
+    function corSinal(sinal) {
+      if (sinal === 'verde') return 'var(--green)';
+      if (sinal === 'amarelo') return 'var(--amber)';
+      if (sinal === 'vermelho') return 'var(--red)';
+      return 'var(--text-5)'; // na
+    }
+    function corIndiceAlerta(pct) {
+      if (pct === null || pct === undefined) return 'var(--text-5)';
+      if (pct <= 20) return 'var(--green)';
+      if (pct <= 50) return 'var(--amber)';
+      return 'var(--red)';
+    }
+
+    async function carregarFundamentos() {
+      $('fundamentos-list').innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-4);font-size:12px;">Carregando (setor novo pode demorar alguns segundos, a IA calibra na hora)…</div>';
+      try {
+        const r = await api('fundamentos');
+        if (!r.ok) throw new Error('resposta_invalida');
+        state.fundamentos = r.data || [];
+        state.indicadoresMeta = r.indicadores || {};
+        state.fundamentosLoaded = true;
+        renderFundamentosView();
+      } catch (e) {
+        $('fundamentos-list').innerHTML = '';
+        toast('Erro ao carregar fundamentos: ' + e.message, 4000, true);
+      }
+    }
+
+    function renderFundamentosView() {
+      const lista = state.fundamentos;
+      $('fundamentos-empty').style.display = lista.length ? 'none' : 'flex';
+      $('fundamentos-list').innerHTML = lista.map((item) => {
+        if (item.erro) {
+          return `<div class="card" style="padding:14px;margin-bottom:8px;color:var(--text-4);font-size:12px;">${item.nome} (${item.ticker}) — sem dados da bolsai ainda</div>`;
+        }
+        const dots = Object.keys(state.indicadoresMeta).map((ind) => {
+          const d = (item.detalhe || []).find((x) => x.indicador === ind);
+          const cor = d ? corSinal(d.sinal) : 'var(--text-5)';
+          return `<span style="width:9px;height:9px;border-radius:50%;background:${cor};display:inline-block;"></span>`;
+        }).join('');
+        return `
+          <div class="ativo-item" data-ticker="${item.ticker}" style="cursor:pointer;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:600;color:var(--text-1);">${item.nome}</div>
+              <div style="font-size:11px;color:var(--text-4);margin:2px 0 6px;">${item.ticker} · ${prettyLabel(item.setor)}${item.setor_sem_calibracao ? ' · <span style=\"color:var(--amber);\">calibrado agora pela IA</span>' : ''}</div>
+              <div style="display:flex;gap:4px;">${dots}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;margin-left:10px;">
+              <div class="num" style="font-size:20px;font-weight:700;color:${corIndiceAlerta(item.indice_alerta)};">${item.indice_alerta ?? '—'}%</div>
+              <div style="font-size:9px;color:var(--text-4);text-transform:uppercase;letter-spacing:0.5px;">alerta</div>
+            </div>
+          </div>`;
+      }).join('');
+      $$('#fundamentos-list [data-ticker]').forEach((el) => {
+        el.addEventListener('click', () => openFundamentoModal(el.dataset.ticker));
+      });
+    }
+
+    function openFundamentoModal(ticker) {
+      const item = state.fundamentos.find((x) => x.ticker === ticker);
+      if (!item || item.erro) return;
+      const linhas = Object.keys(state.indicadoresMeta).map((ind) => {
+        const meta = state.indicadoresMeta[ind];
+        const d = (item.detalhe || []).find((x) => x.indicador === ind) || { sinal: 'na' };
+        const valor = item.fundamentos ? item.fundamentos[ind] : null;
+        return `
+          <div class="cell">
+            <div class="l">${meta.label}</div>
+            <div class="v num" style="display:flex;align-items:center;gap:6px;">
+              <span style="width:8px;height:8px;border-radius:50%;background:${corSinal(d.sinal)};flex-shrink:0;"></span>
+              ${fmtIndicador(ind, valor)}
+            </div>
+          </div>`;
+      }).join('');
+      $('modal-content').innerHTML = `
+        <div class="modal-top-row">
+          <div class="modal-badges"><span class="badge" style="background:var(--purple-bg);color:var(--purple);">${prettyLabel(item.setor)}</span></div>
+        </div>
+        <h2>${item.nome}</h2>
+        <div class="classif">${item.ticker} · balanço ${item.reference_date || '—'}</div>
+
+        <div class="modal-hero-val">
+          <div class="l">Índice de alerta</div>
+          <div class="v num" style="color:${corIndiceAlerta(item.indice_alerta)};">${item.indice_alerta ?? '—'}%</div>
+        </div>
+
+        ${item.leitura_ia ? `<div class="ganho-real-block"><div class="grb-title">${ICONS.scale} Leitura</div><div style="font-size:12.5px;color:var(--text-2);line-height:1.6;padding-top:6px;">${item.leitura_ia}</div><div class="grb-foot">Leitura automática segundo os parâmetros configurados — não é recomendação de investimento.</div></div>` : ''}
+
+        <div class="modal-grid">${linhas}</div>
+
+        <div class="edit-actions">
+          <button class="ef-btn ghost" onclick="closeModal()">Fechar</button>
+          <button class="ef-btn primary" onclick="closeModal(); goTo('parametros'); setTimeout(() => abrirSetorParametros('${item.setor}'), 100);">Editar parâmetros de ${prettyLabel(item.setor)}</button>
+        </div>
+      `;
+      $('modal').classList.add('on');
+    }
+
+    $('btn-abrir-parametros').addEventListener('click', () => goTo('parametros'));
+
+    // ---- Tela de Parâmetros (editável, sem depender de código pra setor novo) ----
+
+    async function carregarParametros() {
+      $('parametros-list').innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-4);font-size:12px;">Carregando…</div>';
+      try {
+        const r = await api('parametros');
+        if (!r.ok) throw new Error('resposta_invalida');
+        state.parametros = r.data || [];
+        state.indicadoresMeta = r.indicadores || state.indicadoresMeta;
+        state.parametrosLoaded = true;
+        renderParametrosView();
+      } catch (e) {
+        $('parametros-list').innerHTML = '';
+        toast('Erro ao carregar parâmetros: ' + e.message, 4000, true);
+      }
+    }
+
+    function renderParametrosView() {
+      const porSetor = {};
+      state.parametros.forEach((p) => { (porSetor[p.setor] = porSetor[p.setor] || []).push(p); });
+      const setores = Object.keys(porSetor).sort((a, b) => (a === 'PADRAO' ? 1 : b === 'PADRAO' ? -1 : a.localeCompare(b)));
+
+      $('parametros-list').innerHTML = setores.map((setor) => {
+        const linhas = porSetor[setor]
+          .slice()
+          .sort((a, b) => a.indicador.localeCompare(b.indicador))
+          .map((p) => {
+            const meta = state.indicadoresMeta[p.indicador] || { label: p.indicador };
+            return `
+            <div class="edit-form" style="grid-template-columns:1fr;padding:10px 0;border-bottom:1px solid var(--border);margin-top:0;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <div style="font-size:12px;font-weight:600;color:var(--text-1);">${meta.label}${p.gerado_por_ia ? ' <span style="font-size:9px;color:var(--amber);font-weight:500;">IA</span>' : ''}</div>
+                <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3);">
+                  <input type="checkbox" class="pf-aplicavel" ${Number(p.aplicavel) === 1 ? 'checked' : ''} style="width:14px;height:14px;accent-color:var(--green);"> aplicável
+                </label>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;">
+                <div class="field"><label>Verde ${p.direcao === 'menor_melhor' ? '(até)' : '(a partir)'}</label><input type="number" step="any" class="pf-verde" value="${p.verde_limite ?? ''}"></div>
+                <div class="field"><label>Amarelo até</label><input type="number" step="any" class="pf-amarelo" value="${p.amarelo_limite ?? ''}"></div>
+                <div class="field"><label>Peso (1-3)</label><input type="number" min="1" max="3" step="1" class="pf-peso" value="${p.peso}"></div>
+              </div>
+            </div>`;
+          }).join('');
+        return `
+          <div class="card setor-parametros" data-setor="${setor}" style="margin-bottom:12px;padding:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <div style="font-size:14px;font-weight:700;color:var(--text-1);">${prettyLabel(setor)}</div>
+              <button class="ef-btn primary pf-salvar-setor" style="flex:none;padding:8px 16px;font-size:12px;">Salvar</button>
+            </div>
+            ${linhas}
+          </div>`;
+      }).join('');
+
+      $$('.setor-parametros').forEach((card) => {
+        card.querySelector('.pf-salvar-setor').addEventListener('click', () => salvarSetorParametros(card));
+      });
+    }
+
+    function abrirSetorParametros(setor) {
+      const card = document.querySelector(`.setor-parametros[data-setor="${setor}"]`);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function salvarSetorParametros(card) {
+      const setor = card.dataset.setor;
+      const btn = card.querySelector('.pf-salvar-setor');
+      btn.disabled = true; btn.textContent = 'Salvando...';
+      const linhas = card.querySelectorAll(':scope > .edit-form');
+      const setorRows = state.parametros.filter((p) => p.setor === setor).sort((a, b) => a.indicador.localeCompare(b.indicador));
+      try {
+        for (let i = 0; i < linhas.length; i++) {
+          const row = setorRows[i];
+          const bloco = linhas[i];
+          const payload = {
+            setor,
+            indicador: row.indicador,
+            aplicavel: bloco.querySelector('.pf-aplicavel').checked,
+            verde_limite: bloco.querySelector('.pf-verde').value,
+            amarelo_limite: bloco.querySelector('.pf-amarelo').value,
+            peso: bloco.querySelector('.pf-peso').value
+          };
+          const r = await fetch('/api/parametros', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok || j.erro) throw new Error(j.erro || ('HTTP ' + r.status));
+        }
+        toast('Parâmetros de ' + prettyLabel(setor) + ' salvos.');
+        state.parametrosLoaded = false;
+        state.fundamentosLoaded = false; // proximo load de fundamentos recalcula com o parametro novo
+        await carregarParametros();
+      } catch (e) {
+        toast('Erro ao salvar: ' + e.message, 4000, true);
+      } finally {
+        btn.disabled = false; btn.textContent = 'Salvar';
+      }
+    }
+
     // ==================== ACOES ====================
     $('btn-camuflagem').addEventListener('click', () => {
       state.camuflado = !state.camuflado;
@@ -2817,6 +3069,8 @@
       $$('nav.bottom-nav button').forEach(b => b.classList.toggle('active', b.dataset.nav === v));
       window.scrollTo({ top: 0, behavior: 'smooth' });
       if (v === 'ativos') renderChipsC1();
+      if (v === 'fundamentos' && !state.fundamentosLoaded) carregarFundamentos();
+      if (v === 'parametros' && !state.parametrosLoaded) carregarParametros();
     }
 
     $('viz-toggle-alocacao').querySelectorAll('button').forEach(b => {
