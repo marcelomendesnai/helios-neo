@@ -1453,7 +1453,7 @@
     // Se estiver no meio de várias correções rápidas e precisar ver a última
     // versão AGORA (sem esperar fechar), avisar o Marcelo pra dar hard-reload
     // ou limpar o cache do SW manualmente em vez de forçar um bump por push.
-    const APP_VERSION = 'v5.7';
+    const APP_VERSION = 'v5.7.1';
     console.log('[Helios Neo] build ' + APP_VERSION);
     document.querySelectorAll('.build-tag').forEach((el) => { el.textContent = APP_VERSION; });
 
@@ -2396,14 +2396,17 @@
       const m = String(dataStr).match(/^\d{4}-(\d{2})/);
       return m ? HIST_MESES[Number(m[1]) - 1] : String(dataStr).slice(5);
     }
-    function pctBadgeSvg(cx, y, pct) {
+    // "anchor" (start/middle/end) evita que o rotulo do primeiro/ultimo ponto
+    // vaze pra fora do SVG — mesmo criterio usado no rotulo de mes embaixo.
+    function pctBadgeSvg(cx, y, pct, anchor) {
       if (pct === null) return '';
       const cor = pct > 0 ? 'var(--green)' : (pct < 0 ? 'var(--red)' : 'var(--text-4)');
       const bg = pct > 0 ? 'rgba(16,185,129,0.16)' : (pct < 0 ? 'rgba(239,68,68,0.16)' : 'rgba(113,113,122,0.16)');
       const txt = fmtPct(pct, 1);
       const w = 15 + txt.length * 5.2;
-      return `<rect x="${(cx - w / 2).toFixed(1)}" y="${(y - 9).toFixed(1)}" width="${w.toFixed(1)}" height="13" rx="6.5" fill="${bg}"/>` +
-        `<text x="${cx.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="8" font-weight="700" fill="${cor}">${txt}</text>`;
+      const rectX = anchor === 'start' ? cx : (anchor === 'end' ? cx - w : cx - w / 2);
+      return `<rect x="${rectX.toFixed(1)}" y="${(y - 9).toFixed(1)}" width="${w.toFixed(1)}" height="13" rx="6.5" fill="${bg}"/>` +
+        `<text x="${(rectX + w / 2).toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="8" font-weight="700" fill="${cor}">${txt}</text>`;
     }
 
     // Desenha 1+ series retas (sem curva — decisao do modelo aprovado, igual
@@ -2433,12 +2436,14 @@
         out += `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
         pts.forEach((p, i) => {
           const isLast = i === pts.length - 1;
+          const isFirst = i === 0;
+          const anchor = isFirst ? 'start' : (isLast ? 'end' : 'middle');
           const r = isLast ? 5 : 3.5;
           const labelY = p.y - (isLast ? 12 : 10);
           const pct = i === 0 ? null : (s.data[i] - s.data[i - 1]) / (s.data[i - 1] || 1);
-          out += pctBadgeSvg(p.x, labelY - 15, pct);
+          out += pctBadgeSvg(p.x, labelY - 15, pct, anchor);
           out += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="${isLast ? 'var(--red)' : s.color}" stroke="var(--bg-1)" stroke-width="2"/>`;
-          out += `<text x="${p.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" font-size="9.5" font-family="Inter" font-weight="600" fill="${isLast ? 'var(--red)' : 'var(--text-1)'}">${fmtHistMil(s.data[i])}</text>`;
+          out += `<text x="${p.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="${anchor}" font-size="9.5" font-family="Inter" font-weight="600" fill="${isLast ? 'var(--red)' : 'var(--text-1)'}">${fmtHistMil(s.data[i])}</text>`;
           if (si === series.length - 1) {
             out += `<text x="${p.x.toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="9.5" font-family="Inter" fill="var(--text-4)" font-weight="500">${s.labels[i]}</text>`;
           }
