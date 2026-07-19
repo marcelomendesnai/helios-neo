@@ -1251,7 +1251,7 @@
           <svg id="line-svg" viewBox="0 0 400 200" preserveAspectRatio="none" style="display:none;"></svg>
           <div class="legend-line" id="line-legend" style="display:none;">
             <span><span style="display:inline-block;width:12px;height:2px;background:var(--green);border-radius:1px;"></span> Bruto</span>
-            <span><span style="display:inline-block;width:12px;height:2px;background:var(--text-4);border-radius:1px;"></span> Líquido</span>
+            <span><span style="display:inline-block;width:12px;height:2px;background:var(--blue);border-radius:1px;"></span> Líquido</span>
           </div>
         </div>
         <div class="hist-stats" id="hist-stats" style="display:none;"></div>
@@ -2222,49 +2222,87 @@
       $('line-legend').style.display = 'flex';
       $('hist-stats').style.display = 'grid';
 
-      const W = 400, H = 200, padL = 40, padR = 10, padT = 10, padB = 24;
+      // PASSO — repaginação 2026-07-19 (queixa do Marcelo: grafico "pobre"):
+      // 1) rotulo do eixo X do ultimo ponto cortava na borda (text-anchor middle
+      //    sem espaco) -> agora ancora start/middle/end conforme a posicao.
+      // 2) linha Liquido era cinza-fosca sem preenchimento, parecia esquecida ->
+      //    passou a usar --blue (cor oficial de "liquidez" no padrao visual) com
+      //    area propria, igual o Bruto ja tinha.
+      // 3) linhas retas/anguladas (poligonal) -> curva suave (Catmull-Rom -> Bezier).
+      const W = 400, H = 200, padL = 42, padR = 14, padT = 14, padB = 24;
       const serie = state.historicoSerie;
       const valsArr = [];
       if (serie === 'bruto' || serie === 'ambos') snaps.forEach(s => valsArr.push(s.total_bruto));
       if (serie === 'liquido' || serie === 'ambos') snaps.forEach(s => valsArr.push(s.total_liquido));
       const minV = Math.min(...valsArr), maxV = Math.max(...valsArr);
-      const range = (maxV - minV) || 1;
+      const spread = (maxV - minV) || 1;
+      // Respiro de 12% acima/abaixo pra curva nao encostar no teto/chao do box.
+      const folga = spread * 0.12;
+      const loV = minV - folga, hiV = maxV + folga;
+      const range = (hiV - loV) || 1;
       const x = (i) => padL + ((W - padL - padR) * i / (snaps.length - 1));
-      const y = (v) => padT + (H - padT - padB) * (1 - (v - minV) / range);
+      const y = (v) => padT + (H - padT - padB) * (1 - (v - loV) / range);
 
-      const pathBruto = snaps.map((s, i) => (i === 0 ? 'M' : 'L') + x(i) + ' ' + y(s.total_bruto)).join(' ');
-      const pathLiq   = snaps.map((s, i) => (i === 0 ? 'M' : 'L') + x(i) + ' ' + y(s.total_liquido)).join(' ');
+      // Catmull-Rom -> Bezier cubica: deixa a linha suave sem inventar dado
+      // (ainda passa exatamente em cima de cada ponto real).
+      function smoothPath(pts) {
+        if (pts.length < 2) return '';
+        let d = `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)}`;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p0 = pts[i === 0 ? i : i - 1];
+          const p1 = pts[i];
+          const p2 = pts[i + 1];
+          const p3 = pts[i + 2 < pts.length ? i + 2 : i + 1];
+          const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+          const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+          d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+        }
+        return d;
+      }
+
+      const ptsBruto = snaps.map((s, i) => ({ x: x(i), y: y(s.total_bruto) }));
+      const ptsLiq   = snaps.map((s, i) => ({ x: x(i), y: y(s.total_liquido) }));
+      const pathBruto = smoothPath(ptsBruto);
+      const pathLiq   = smoothPath(ptsLiq);
 
       const labelsX = snaps.map((s, i) => {
         if (snaps.length > 6 && i % Math.ceil(snaps.length / 6) !== 0 && i !== snaps.length - 1) return '';
         const d = String(s.data).slice(5);
-        return `<text x="${x(i)}" y="${H - 8}" fill="var(--text-4)" font-size="9" font-family="Inter" text-anchor="middle" font-weight="500">${d}</text>`;
+        const anchor = i === 0 ? 'start' : (i === snaps.length - 1 ? 'end' : 'middle');
+        return `<text x="${x(i)}" y="${H - 8}" fill="var(--text-4)" font-size="9" font-family="Inter" text-anchor="${anchor}" font-weight="500">${d}</text>`;
       }).join('');
 
-      const yTicks = [minV, (minV + maxV) / 2, maxV].map(v => {
+      const yTicks = [loV, (loV + hiV) / 2, hiV].map(v => {
         const yv = y(v);
         return `
           <line x1="${padL}" y1="${yv}" x2="${W - padR}" y2="${yv}" stroke="var(--bg-3)" stroke-dasharray="2,3"/>
-          <text x="${padL - 4}" y="${yv + 3}" fill="var(--text-4)" font-size="9" font-family="Inter" font-weight="500" text-anchor="end">${Math.round(v / 1000)}k</text>
+          <text x="${padL - 6}" y="${yv + 3}" fill="var(--text-4)" font-size="9" font-family="Inter" font-weight="500" text-anchor="end">${Math.round(v / 1000)}k</text>
         `;
       }).join('');
 
       let linhas = '', pontos = '', area = '';
       if (serie === 'ambos' || serie === 'liquido') {
-        linhas += `<path d="${pathLiq}" fill="none" stroke="var(--text-4)" stroke-width="1.5"/>`;
+        const areaLiqPath = pathLiq + ` L ${x(snaps.length-1).toFixed(2)} ${H-padB} L ${padL} ${H-padB} Z`;
+        area += `<path d="${areaLiqPath}" fill="url(#gradLiquido)"/>`;
+        linhas += `<path d="${pathLiq}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round"/>`;
+        pontos += ptsLiq.map(p => `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3" fill="var(--bg-1)" stroke="var(--blue)" stroke-width="2"/>`).join('');
       }
       if (serie === 'ambos' || serie === 'bruto') {
-        const areaPath = pathBruto + ` L ${x(snaps.length-1)} ${H-padB} L ${padL} ${H-padB} Z`;
-        area = `<path d="${areaPath}" fill="url(#gradBruto)"/>`;
-        linhas += `<path d="${pathBruto}" fill="none" stroke="var(--green)" stroke-width="2"/>`;
-        pontos = snaps.map((s, i) => `<circle cx="${x(i)}" cy="${y(s.total_bruto)}" r="3" fill="var(--green)"/>`).join('');
+        const areaPath = pathBruto + ` L ${x(snaps.length-1).toFixed(2)} ${H-padB} L ${padL} ${H-padB} Z`;
+        area += `<path d="${areaPath}" fill="url(#gradBruto)"/>`;
+        linhas += `<path d="${pathBruto}" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"/>`;
+        pontos += ptsBruto.map(p => `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3.5" fill="var(--bg-1)" stroke="var(--green)" stroke-width="2.5"/>`).join('');
       }
 
       $('line-svg').innerHTML = `
         <defs>
           <linearGradient id="gradBruto" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#10b981" stop-opacity="0.25"/>
+            <stop offset="0%" stop-color="#10b981" stop-opacity="0.28"/>
             <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="gradLiquido" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.18"/>
+            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
           </linearGradient>
         </defs>
         ${yTicks}
