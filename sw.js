@@ -5,8 +5,9 @@
 // - assets estaticos (manifest, icons): cache-first (rapido, raramente mudam).
 // - Apps Script: nunca cacheia (dados em tempo real).
 //
-// IMPORTANTE: Toda vez que mudar arquivos do shell ou estrategia, BUMP CACHE_NAME (v2 -> v3 etc).
-// Isso forca o SW antigo a cair e limpar caches obsoletos.
+// IMPORTANTE: BUMP CACHE_NAME quando uma ENTREGA fecha (não a cada ajuste fino
+// dentro da mesma sessão — convenção mudou 2026-07-19, ver comentário do
+// APP_VERSION no index.html). Isso forca o SW antigo a cair e limpar caches obsoletos.
 const CACHE_NAME = 'helios-neo-v5.5';
 const STATIC_ASSETS = [
   './',

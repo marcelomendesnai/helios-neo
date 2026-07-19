@@ -1418,9 +1418,15 @@
     // e o PIN só é checado no servidor — nada de senha/token sobra no código-fonte.
 
     // Versao do build: mostrada discretamente no login e no header (.build-tag),
-    // e no console (F12) pra conferencia rapida. TODA VEZ que fizer deploy de algo
-    // novo, sobe esse numero E o CACHE_NAME no sw.js (mesmo numero nos dois, pra
-    // saber na hora qual versao ta rodando e forcar o navegador a buscar a nova).
+    // e no console (F12) pra conferencia rapida.
+    // Convencao (mudou 2026-07-19): NAO sobe a cada ajuste fino/fix pequeno dentro
+    // da mesma sessao de trabalho — só quando uma entrega fecha (feature pronta,
+    // ultimo push antes do Marcelo testar de verdade). Sobe esse numero E o
+    // CACHE_NAME no sw.js juntos (mesmo numero nos dois). Mudança só de backend
+    // (functions/*) NUNCA precisa bump — o Service Worker só cacheia o front.
+    // Se estiver no meio de várias correções rápidas e precisar ver a última
+    // versão AGORA (sem esperar fechar), avisar o Marcelo pra dar hard-reload
+    // ou limpar o cache do SW manualmente em vez de forçar um bump por push.
     const APP_VERSION = 'v5.5';
     console.log('[Helios Neo] build ' + APP_VERSION);
     document.querySelectorAll('.build-tag').forEach((el) => { el.textContent = APP_VERSION; });
