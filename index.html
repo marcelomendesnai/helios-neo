@@ -905,7 +905,7 @@
     /* ==================== EDITOR DE ATIVOS (2026-07-19) ====================
        Reaproveita o mesmo #modal (bottom-sheet) do detalhe, só troca o innerHTML.
        Grid 2 colunas no mobile igual .modal-grid; campos "full" ocupam a linha toda. */
-    .modal-top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+    .modal-top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; padding-right: 40px; }
     .modal-top-row .modal-badges { margin-bottom: 0; }
     .modal-edit-btn {
       display: flex; align-items: center; gap: 5px; flex-shrink: 0;
@@ -1389,7 +1389,7 @@
     // e no console (F12) pra conferencia rapida. TODA VEZ que fizer deploy de algo
     // novo, sobe esse numero E o CACHE_NAME no sw.js (mesmo numero nos dois, pra
     // saber na hora qual versao ta rodando e forcar o navegador a buscar a nova).
-    const APP_VERSION = 'v5.4';
+    const APP_VERSION = 'v5.4.1';
     console.log('[Helios Neo] build ' + APP_VERSION);
     document.querySelectorAll('.build-tag').forEach((el) => { el.textContent = APP_VERSION; });
 
