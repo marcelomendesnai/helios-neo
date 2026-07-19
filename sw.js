@@ -7,7 +7,7 @@
 //
 // IMPORTANTE: Toda vez que mudar arquivos do shell ou estrategia, BUMP CACHE_NAME (v2 -> v3 etc).
 // Isso forca o SW antigo a cair e limpar caches obsoletos.
-const CACHE_NAME = 'helios-neo-v5.3';
+const CACHE_NAME = 'helios-neo-v5.4';
 const STATIC_ASSETS = [
   './',
   './index.html',

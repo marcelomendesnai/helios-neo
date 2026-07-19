@@ -699,6 +699,17 @@
       color: var(--text-4); pointer-events: none;
     }
     .search-wrap .ico svg { width: 15px; height: 15px; }
+    /* Botão "+ novo ativo": absoluto dentro do search-wrap, input ganha padding-right pra não sobrepor texto */
+    .search-wrap-add input { padding-right: 46px; }
+    .search-wrap-add .add-ativo-btn {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      width: 28px; height: 28px; border-radius: var(--r-sm);
+      background: var(--green-bg); color: var(--green);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .search-wrap-add .add-ativo-btn:active { transform: translateY(-50%) scale(0.9); }
+    .search-wrap-add .add-ativo-btn svg { width: 16px; height: 16px; stroke-width: 2.5; }
     .toolbar-row2 {
       display: flex; gap: 8px; justify-content: space-between; align-items: center;
       margin-bottom: 12px;
@@ -890,6 +901,59 @@
       font-size: 10px; font-weight: 600;
     }
     .classif-table .row .v { color: var(--text-1); font-weight: 500; }
+
+    /* ==================== EDITOR DE ATIVOS (2026-07-19) ====================
+       Reaproveita o mesmo #modal (bottom-sheet) do detalhe, só troca o innerHTML.
+       Grid 2 colunas no mobile igual .modal-grid; campos "full" ocupam a linha toda. */
+    .modal-top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+    .modal-top-row .modal-badges { margin-bottom: 0; }
+    .modal-edit-btn {
+      display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+      background: var(--bg-2); color: var(--text-2); border: 1px solid var(--border);
+      padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+      transition: all 0.15s;
+    }
+    .modal-edit-btn:active { background: var(--bg-3); transform: scale(0.96); }
+    .modal-edit-btn svg { width: 13px; height: 13px; }
+
+    .edit-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+    .edit-form .field { display: flex; flex-direction: column; gap: 5px; }
+    .edit-form .field.full { grid-column: 1 / -1; }
+    .edit-form .field label {
+      font-size: 10px; color: var(--text-4); text-transform: uppercase;
+      letter-spacing: 0.8px; font-weight: 600;
+    }
+    .edit-form .field input[type=text],
+    .edit-form .field input[type=number],
+    .edit-form .field input[type=date],
+    .edit-form .field textarea {
+      width: 100%; background: var(--bg-2); border: 1px solid var(--border);
+      color: var(--text-1); padding: 9px 11px; border-radius: var(--r-sm);
+      font-size: 13px; font-family: inherit;
+    }
+    .edit-form .field input:focus, .edit-form .field textarea:focus { border-color: var(--border-hi); }
+    .edit-form .field textarea { resize: vertical; min-height: 44px; }
+    .edit-form .checkbox-field label {
+      display: flex; align-items: center; gap: 8px; text-transform: none;
+      font-size: 12px; color: var(--text-2); font-weight: 500; letter-spacing: normal;
+    }
+    .edit-form .checkbox-field input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--green); }
+
+    .edit-actions { display: flex; gap: 8px; margin-top: 18px; }
+    .ef-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 12px; border-radius: var(--r-md); font-size: 13px; font-weight: 600;
+      transition: all 0.15s; border: 1px solid transparent;
+    }
+    .ef-btn:active { transform: scale(0.97); }
+    .ef-btn.primary { background: var(--green); color: #052e1f; }
+    .ef-btn.ghost { background: var(--bg-2); color: var(--text-3); border-color: var(--border); flex: 0.6; }
+    .ef-btn.danger { background: var(--red-bg); color: var(--red); flex: 0.6; }
+    .ef-btn.danger svg { width: 14px; height: 14px; }
+    .ef-btn:disabled { opacity: 0.6; pointer-events: none; }
+    @media (min-width: 480px) {
+      .edit-form { grid-template-columns: 1fr 1fr 1fr; }
+    }
 
     /* ==================== ALOCACAO POR CATEGORIA ====================
        Lista compacta com barra horizontal embutida + % + valor.
@@ -1199,9 +1263,10 @@
 
       <!-- ============== ATIVOS ============== -->
       <div class="view" data-view="ativos">
-        <div class="search-wrap">
+        <div class="search-wrap search-wrap-add">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
           <input type="search" id="search-ativos" placeholder="Buscar ativo, ticker…">
+          <button id="btn-add-ativo" class="add-ativo-btn" title="Novo ativo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
         </div>
 
         <div class="chips-scroll" id="chips-c1"></div>
@@ -1324,7 +1389,7 @@
     // e no console (F12) pra conferencia rapida. TODA VEZ que fizer deploy de algo
     // novo, sobe esse numero E o CACHE_NAME no sw.js (mesmo numero nos dois, pra
     // saber na hora qual versao ta rodando e forcar o navegador a buscar a nova).
-    const APP_VERSION = 'v5.3';
+    const APP_VERSION = 'v5.4';
     console.log('[Helios Neo] build ' + APP_VERSION);
     document.querySelectorAll('.build-tag').forEach((el) => { el.textContent = APP_VERSION; });
 
@@ -1353,7 +1418,10 @@
       layers:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
       grid:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
       chev_right: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
-      zap:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'
+      zap:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+      pencil:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>',
+      trash:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+      plus:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
     };
 
     // Mapa de icone por classif_1 (heuristico)
@@ -2477,7 +2545,10 @@
       const badges = badgesHtml(a);
 
       $('modal-content').innerHTML = `
-        <div class="modal-badges">${badges}</div>
+        <div class="modal-top-row">
+          <div class="modal-badges">${badges}</div>
+          <button class="modal-edit-btn" onclick="openEditFormById('${a.id}')">${ICONS.pencil}<span>Editar</span></button>
+        </div>
         <h2>${a.nome}</h2>
         <div class="classif">${classif}</div>
 
@@ -2531,6 +2602,175 @@
     $('modal').addEventListener('click', (e) => {
       if (e.target.id === 'modal') closeModal();
     });
+
+    // ==================== EDITOR DE ATIVOS (2026-07-19) ====================
+    // Editar/criar/apagar direto na página. Backend: POST/PUT/DELETE /api/ativos[/:id]
+    // (functions/api/ativos.js e functions/api/ativos/[id].js). Ver _lib/ativos.js
+    // pra whitelist de campos (CAMPOS_ATIVO) — o form só manda o que é permitido.
+
+    function openEditFormById(id) {
+      const a = state.ativos.find((x) => x.id === id);
+      if (a) openEditForm(a);
+    }
+
+    // Sugestões de classificação = valores já usados nos ativos atuais (datalist,
+    // aceita digitar valor novo também — não precisa de endpoint de classificacoes).
+    function distinctVals(campo) {
+      return [...new Set(state.ativos.map((a) => a[campo]).filter(Boolean))].sort();
+    }
+    function datalistOptions(campo) {
+      return distinctVals(campo).map((v) => `<option value="${v}"></option>`).join('');
+    }
+
+    // a = null → formulário de criação. a = objeto → edição.
+    function openEditForm(a) {
+      const isNovo = !a;
+      const v = a || {
+        nome: '', classif_1: '', classif_2: '', classif_3: '', classif_4: '',
+        ticker_api: '', qtd: '', preco_medio: '', data_aquis: '',
+        calc_real: 0, preco_atual_manual: '', moeda: 'BRL', fonte_url: '', observacao: ''
+      };
+      $('modal-content').innerHTML = `
+        <h2>${isNovo ? 'Novo ativo' : 'Editar ativo'}</h2>
+        <div class="edit-form" id="edit-form">
+          <div class="field full">
+            <label>Nome*</label>
+            <input type="text" id="ef-nome" value="${escAttr(v.nome)}" placeholder="Ex: BBAS3, Tesouro Selic 2031...">
+          </div>
+          <div class="field">
+            <label>Classe 1</label>
+            <input type="text" id="ef-c1" list="dl-c1" value="${escAttr(v.classif_1)}">
+            <datalist id="dl-c1">${datalistOptions('classif_1')}</datalist>
+          </div>
+          <div class="field">
+            <label>Classe 2</label>
+            <input type="text" id="ef-c2" list="dl-c2" value="${escAttr(v.classif_2)}">
+            <datalist id="dl-c2">${datalistOptions('classif_2')}</datalist>
+          </div>
+          <div class="field">
+            <label>Classe 3</label>
+            <input type="text" id="ef-c3" list="dl-c3" value="${escAttr(v.classif_3)}">
+            <datalist id="dl-c3">${datalistOptions('classif_3')}</datalist>
+          </div>
+          <div class="field">
+            <label>Classe 4</label>
+            <input type="text" id="ef-c4" list="dl-c4" value="${escAttr(v.classif_4)}">
+            <datalist id="dl-c4">${datalistOptions('classif_4')}</datalist>
+          </div>
+          <div class="field">
+            <label>Ticker (cotação automática)</label>
+            <input type="text" id="ef-ticker" value="${escAttr(v.ticker_api)}" placeholder="Ex: PETR4 (vazio = só manual)" style="text-transform:uppercase;">
+          </div>
+          <div class="field">
+            <label>Moeda</label>
+            <input type="text" id="ef-moeda" value="${escAttr(v.moeda || 'BRL')}" maxlength="3" style="text-transform:uppercase;">
+          </div>
+          <div class="field">
+            <label>Quantidade</label>
+            <input type="number" step="any" id="ef-qtd" value="${v.qtd ?? ''}">
+          </div>
+          <div class="field">
+            <label>Preço médio (compra)</label>
+            <input type="number" step="any" id="ef-pm" value="${v.preco_medio ?? ''}">
+          </div>
+          <div class="field">
+            <label>Valor/preço atual manual</label>
+            <input type="text" id="ef-manual" value="${escAttr(v.preco_atual_manual)}" placeholder="Número, ou 'ATUALIZAR' se pendente">
+          </div>
+          <div class="field">
+            <label>Data de aquisição</label>
+            <input type="date" id="ef-data" value="${escAttr(v.data_aquis)}">
+          </div>
+          <div class="field full checkbox-field">
+            <label><input type="checkbox" id="ef-real" ${Number(v.calc_real) === 1 ? 'checked' : ''}> Bem físico com correção pela inflação (imóvel, carro etc)</label>
+          </div>
+          <div class="field full">
+            <label>Link de referência (opcional)</label>
+            <input type="text" id="ef-url" value="${escAttr(v.fonte_url)}" placeholder="https://...">
+          </div>
+          <div class="field full">
+            <label>Observação</label>
+            <textarea id="ef-obs" rows="2">${escHtml(v.observacao)}</textarea>
+          </div>
+        </div>
+        <div class="edit-actions">
+          ${isNovo ? '' : `<button class="ef-btn danger" id="ef-apagar">${ICONS.trash}<span>Apagar</span></button>`}
+          <button class="ef-btn ghost" id="ef-cancelar">Cancelar</button>
+          <button class="ef-btn primary" id="ef-salvar">Salvar</button>
+        </div>
+      `;
+      $('modal').classList.add('on');
+
+      $('ef-cancelar').addEventListener('click', () => {
+        if (isNovo) closeModal(); else openModal(a);
+      });
+      if (!isNovo) {
+        $('ef-apagar').addEventListener('click', () => apagarAtivo(a.id, a.nome));
+      }
+      $('ef-salvar').addEventListener('click', () => salvarAtivo(isNovo ? null : a.id));
+    }
+
+    function coletarFormAtivo() {
+      return {
+        nome: $('ef-nome').value.trim(),
+        classif_1: $('ef-c1').value.trim(),
+        classif_2: $('ef-c2').value.trim(),
+        classif_3: $('ef-c3').value.trim(),
+        classif_4: $('ef-c4').value.trim(),
+        ticker_api: $('ef-ticker').value.trim().toUpperCase(),
+        moeda: $('ef-moeda').value.trim().toUpperCase() || 'BRL',
+        qtd: $('ef-qtd').value,
+        preco_medio: $('ef-pm').value,
+        preco_atual_manual: $('ef-manual').value.trim(),
+        data_aquis: $('ef-data').value,
+        calc_real: $('ef-real').checked ? 1 : 0,
+        fonte_url: $('ef-url').value.trim(),
+        observacao: $('ef-obs').value.trim()
+      };
+    }
+
+    async function salvarAtivo(id) {
+      const dados = coletarFormAtivo();
+      if (!dados.nome) { toast('Nome é obrigatório', 3000, true); return; }
+      const btn = $('ef-salvar');
+      btn.disabled = true; btn.textContent = 'Salvando...';
+      try {
+        const r = await fetch(id ? ('/api/ativos/' + id) : '/api/ativos', {
+          method: id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dados)
+        });
+        if (r.status === 401) { $('app').style.display = 'none'; $('login-screen').style.display = 'flex'; return; }
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j.erro) throw new Error(j.erro || ('HTTP ' + r.status));
+        closeModal();
+        toast(id ? 'Ativo atualizado.' : 'Ativo criado.');
+        await load();
+      } catch (e) {
+        toast('Erro ao salvar: ' + e.message, 4000, true);
+        btn.disabled = false; btn.textContent = 'Salvar';
+      }
+    }
+
+    async function apagarAtivo(id, nome) {
+      if (!confirm('Apagar "' + nome + '"? Isso remove ele do app (dá pra restaurar direto no banco se precisar).')) return;
+      try {
+        const r = await fetch('/api/ativos/' + id, { method: 'DELETE' });
+        if (r.status === 401) { $('app').style.display = 'none'; $('login-screen').style.display = 'flex'; return; }
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j.erro) throw new Error(j.erro || ('HTTP ' + r.status));
+        closeModal();
+        toast('Ativo apagado.');
+        await load();
+      } catch (e) {
+        toast('Erro ao apagar: ' + e.message, 4000, true);
+      }
+    }
+
+    function escAttr(v) { return (v ?? '').toString().replace(/"/g, '&quot;'); }
+    function escHtml(v) { return (v ?? '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    $('btn-add-ativo').addEventListener('click', () => openEditForm(null));
 
     // ==================== ACOES ====================
     $('btn-camuflagem').addEventListener('click', () => {

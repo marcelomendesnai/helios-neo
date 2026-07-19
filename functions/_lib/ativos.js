@@ -12,6 +12,40 @@ function hojeStr() {
   return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
 }
 
+// Editor de ativos (2026-07-19) — campos que a página deixa editar direto.
+// Whitelist de propósito: nunca deixar o body do POST/PUT gravar coluna fora
+// dessa lista (ex: 'id', 'ativo' de soft-delete tem rota própria — DELETE).
+export const CAMPOS_ATIVO = [
+  'classif_1', 'classif_2', 'classif_3', 'classif_4',
+  'nome', 'ticker_api', 'qtd', 'preco_medio', 'data_aquis',
+  'calc_real', 'preco_atual_manual', 'moeda', 'fonte_url', 'observacao'
+];
+
+// Gera id curto no mesmo formato dos existentes (8 hex, ex: 'e5832a55').
+export function gerarIdAtivo() {
+  return crypto.randomUUID().replace(/-/g, '').slice(0, 8);
+}
+
+// Filtra o body pra só os campos permitidos + normaliza tipos (D1 é chato
+// com undefined — vira null; número vazio vira null; calc_real vira 0/1).
+export function sanitizarAtivoInput(body) {
+  const out = {};
+  for (const campo of CAMPOS_ATIVO) {
+    if (!(campo in body)) continue;
+    let v = body[campo];
+    if (v === '' || v === undefined) v = null;
+    if (campo === 'qtd' || campo === 'preco_medio') {
+      v = v === null ? null : Number(v);
+      if (v !== null && isNaN(v)) v = null;
+    }
+    if (campo === 'calc_real') {
+      v = (v === true || v === 1 || v === '1') ? 1 : 0;
+    }
+    out[campo] = v;
+  }
+  return out;
+}
+
 async function mapaCotacoesHoje(db, hoje) {
   const { results } = await db
     .prepare('SELECT ticker_api, preco FROM cotacoes_cache WHERE data = ?')
