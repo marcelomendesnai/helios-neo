@@ -24,6 +24,36 @@ async function buscarSetorBolsai(ticker, env) {
   return j.sector || null;
 }
 
+// Fallback pro dividend_yield: bolsai free NAO devolve esse campo (confirmado
+// 2026-07-19, o Marcelo testou e veio vazio). Em vez de pagar plano pago de
+// qualquer uma das duas APIs só por causa desse indicador, calculamos na mao
+// com dado que a BRAPI (que ja usamos de graca pra cotacao) devolve: soma dos
+// proventos por acao pagos nos ultimos 12 meses / preco atual.
+async function buscarDividendYieldBrapi(ticker, precoAtual, env) {
+  if (!precoAtual || !env.BRAPI_TOKEN) return null;
+  try {
+    let url = 'https://brapi.dev/api/v2/stocks/dividends?symbols=' + encodeURIComponent(ticker);
+    url += '&token=' + env.BRAPI_TOKEN;
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const j = await r.json();
+    const item = j.results && j.results[0];
+    const cash = item && item.data && item.data.cashDividends;
+    if (!cash || !cash.length) return null;
+    const umAnoAtrasMs = Date.now() - 365 * 24 * 60 * 60 * 1000;
+    let soma = 0;
+    cash.forEach((d) => {
+      const dataRef = d.paymentDate || d.lastDatePrior;
+      const t = dataRef ? Date.parse(dataRef) : NaN;
+      if (!isNaN(t) && t >= umAnoAtrasMs) soma += Number(d.rate) || 0;
+    });
+    if (soma <= 0) return null;
+    return (soma / precoAtual) * 100; // % ao ano (trailing 12m)
+  } catch (e) {
+    return null; // BRAPI dividends pode nao estar no plano free — falha em silencio, fica N/A
+  }
+}
+
 // Retorna a linha de fundamentos_cache do dia (busca na bolsai se ainda nao tem).
 // reference_date = trimestre do balanço (vem da bolsai) — cada trimestre novo vira
 // uma linha nova na tabela = histórico "de graça" acumulando a partir de hoje.
@@ -37,6 +67,13 @@ export async function obterFundamentosCache(db, ticker, env) {
     buscarSetorBolsai(ticker, env)
   ]);
   if (!dados) return null;
+
+  // dividend_yield: confirmado 2026-07-19 que a bolsai free NAO devolve esse
+  // campo no /fundamentals. Cai pro fallback via BRAPI (proventos 12m / preco).
+  let dividendYield = dados.dividend_yield ?? null;
+  if (dividendYield === null && dados.close_price) {
+    dividendYield = await buscarDividendYieldBrapi(ticker, dados.close_price, env);
+  }
 
   const row = {
     ticker,
@@ -53,10 +90,7 @@ export async function obterFundamentosCache(db, ticker, env) {
     current_ratio: dados.current_ratio ?? null,
     cagr_revenue_5y: dados.cagr_revenue_5y ?? null,
     cagr_earnings_5y: dados.cagr_earnings_5y ?? null,
-    // dividend_yield: [nao verificado] se a bolsai devolve isso de graca no
-    // /fundamentals - se vier undefined aqui, fica null e a matriz marca N/A
-    // pra esse indicador em vez de quebrar.
-    dividend_yield: dados.dividend_yield ?? null,
+    dividend_yield: dividendYield,
     raw_json: JSON.stringify(dados)
   };
 
