@@ -274,7 +274,7 @@
          facil de ler numa tela grande). Alvo em 2 colunas — cada categoria
          vira um card menor lado a lado, igual um formulario de verdade. */
       .line-chart-box { padding: 20px; }
-      .line-chart-box svg { max-height: 320px; }
+      .line-chart-box svg { max-height: 260px; }
       #alvo-list {
         display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px;
         align-items: start;
@@ -496,6 +496,10 @@
       border-radius: 99px;
     }
     .chip.active .count { background: rgba(0,0,0,0.15); opacity: 0.8; }
+    /* Chip de período sem efeito real (histórico curto demais pro filtro
+       fazer diferença) — visualmente "apagado", ainda clicável mas sinaliza
+       que não muda nada agora. Ver renderHistorico(). */
+    .chip-disabled { opacity: 0.35; }
 
     /* ==================== STATUS BADGES ==================== */
     .badge {
@@ -764,12 +768,18 @@
       background: var(--bg-1); border: 1px solid var(--border);
       border-radius: var(--r-lg); padding: 14px 12px 10px 12px;
     }
-    .line-chart-box svg { width: 100%; height: auto; display: block; }
+    .line-chart-box svg { width: 100%; height: auto; max-height: 220px; display: block; }
     .line-chart-box .legend-line {
       display: flex; gap: 16px; justify-content: center; margin-top: 8px;
       font-size: 11px; color: var(--text-4); font-weight: 500;
     }
     .line-chart-box .legend-line span { display: inline-flex; align-items: center; gap: 5px; }
+    /* Aviso quando tem poucos snapshots ainda (comum no início, 1 por mês) —
+       explica que não é bug, é o histórico só começando a acumular. */
+    .hist-aviso {
+      font-size: 11px; color: var(--text-4); text-align: center;
+      margin-top: 8px; padding: 0 10px; line-height: 1.5;
+    }
     .hist-stats {
       display: grid; grid-template-columns: 1fr 1fr 1fr;
       gap: 8px; margin-top: 10px;
@@ -1302,7 +1312,7 @@
         <div class="card" id="passivos-list"></div>
       </div>
 
-      <!-- ============== HISTORICO ============== -->
+      <!-- ============== HISTORICO (reformulado 2026-07-19) ============== -->
       <div class="view" data-view="historico">
         <div class="section-title">
           <span>Histórico</span>
@@ -1319,18 +1329,25 @@
           <button class="chip" data-p="3">3m</button>
           <button class="chip" data-p="1">1m</button>
         </div>
+        <!-- Filtro por categoria (novo): usa o total_por_classif1 que já vem em
+             cada snapshot (GET /api/snapshots), sem precisar de endpoint novo.
+             'Tudo' = série Bruto/Líquido de sempre; escolher uma classe troca
+             pra 1 linha só (o toggle Ambos/Bruto/Líquido some nesse modo, não
+             faz sentido pra uma categoria só). -->
+        <div class="chips-scroll" id="chips-categoria-hist"></div>
         <div class="line-chart-box" id="line-chart-box">
           <div class="empty" id="historico-empty" style="display:none;">
             <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-            <div>Sem snapshots ainda.</div>
+            <div id="historico-empty-msg">Sem snapshots ainda.</div>
             <div style="margin-top:6px;color:var(--text-5);font-size:11px;">O primeiro snapshot roda no dia 1 de cada mes.</div>
           </div>
-          <svg id="line-svg" viewBox="0 0 400 200" preserveAspectRatio="none" style="display:none;"></svg>
+          <svg id="line-svg" viewBox="0 0 400 170" preserveAspectRatio="none" style="display:none;"></svg>
           <div class="legend-line" id="line-legend" style="display:none;">
             <span><span style="display:inline-block;width:12px;height:2px;background:var(--green);border-radius:1px;"></span> Bruto</span>
             <span><span style="display:inline-block;width:12px;height:2px;background:var(--blue);border-radius:1px;"></span> Líquido</span>
           </div>
         </div>
+        <div id="historico-pouco-dado" class="hist-aviso" style="display:none;"></div>
         <div class="hist-stats" id="hist-stats" style="display:none;"></div>
       </div>
 
@@ -1427,7 +1444,7 @@
     // Se estiver no meio de várias correções rápidas e precisar ver a última
     // versão AGORA (sem esperar fechar), avisar o Marcelo pra dar hard-reload
     // ou limpar o cache do SW manualmente em vez de forçar um bump por push.
-    const APP_VERSION = 'v5.5';
+    const APP_VERSION = 'v5.6';
     console.log('[Helios Neo] build ' + APP_VERSION);
     document.querySelectorAll('.build-tag').forEach((el) => { el.textContent = APP_VERSION; });
 
@@ -1529,6 +1546,7 @@
       ativosChip: '',
       historicoSerie: 'ambos',
       historicoPeriodo: 'todo',
+      historicoCategoria: '',
       fundamentos: [],
       fundamentosLoaded: false,
       indicadoresMeta: {},
@@ -1697,6 +1715,7 @@
       renderChipsC1();
       renderAtivosView();
       renderPassivos();
+      renderChipsCategoriaHist();
       renderHistorico();
       renderAlvo();
     }
@@ -2330,8 +2349,52 @@
       });
     }
 
+    // Formata rotulo do eixo Y no mesmo padrao compacto do resto do app
+    // (fmtBRLCompact), sem o "R$" pra caber mais junto do grafico.
+    function fmtTickBRL(v) {
+      const n = Math.abs(Number(v));
+      if (n >= 1e6) return (Number(v) / 1e6).toFixed(2).replace('.', ',') + 'M';
+      if (n >= 1e3) return (Number(v) / 1e3).toFixed(0) + 'k';
+      return String(Math.round(Number(v)));
+    }
+
+    // Chips de categoria: opções = uniao das chaves que já apareceram em
+    // qualquer snapshot (não só o mais recente, senão categoria zerada some
+    // do filtro). "Tudo" volta pro modo Bruto/Líquido de sempre.
+    function renderChipsCategoriaHist() {
+      const chaves = new Set();
+      (state.snapshots || []).forEach((s) => {
+        if (s.por_classif1) Object.keys(s.por_classif1).forEach((k) => chaves.add(k));
+      });
+      const cats = [...chaves].sort();
+      const wrap = $('chips-categoria-hist');
+      wrap.innerHTML = `<button class="chip ${state.historicoCategoria === '' ? 'active' : ''}" data-cat="">Tudo</button>` +
+        cats.map((c) => `<button class="chip ${state.historicoCategoria === c ? 'active' : ''}" data-cat="${c}">${prettyLabel(c)}</button>`).join('');
+      wrap.querySelectorAll('.chip').forEach((b) => {
+        b.addEventListener('click', () => {
+          state.historicoCategoria = b.dataset.cat;
+          $('viz-toggle-serie').style.display = state.historicoCategoria ? 'none' : 'flex';
+          renderHistorico();
+        });
+      });
+    }
+
     function renderHistorico() {
       let snaps = (state.snapshots || []).filter(s => s.total_bruto != null).sort((a, b) => (a.data + '').localeCompare(b.data + ''));
+      const totalSnaps = snaps.length;
+
+      // Chips de período só aparecem clicáveis se tiverem efeito de verdade —
+      // com pouco histórico, "12m"/"6m" filtrar igual a "Tudo" é um controle
+      // que finge fazer algo. Desabilita (visualmente) o que não muda nada.
+      if (totalSnaps >= 2) {
+        const amplitudeMeses = mesesEntre(snaps[0].data, snaps[totalSnaps - 1].data);
+        $$('#chips-periodo .chip').forEach((b) => {
+          const p = b.dataset.p;
+          const aplica = p === 'todo' || Number(p) < amplitudeMeses;
+          b.classList.toggle('chip-disabled', !aplica);
+          b.disabled = !aplica;
+        });
+      }
 
       if (state.historicoPeriodo !== 'todo') {
         const meses = Number(state.historicoPeriodo);
@@ -2341,41 +2404,54 @@
         snaps = snaps.filter(s => String(s.data) >= corteStr);
       }
 
+      const categoria = state.historicoCategoria;
+      const valorDe = (s) => categoria ? ((s.por_classif1 && s.por_classif1[categoria]) ?? null) : s.total_bruto;
+      if (categoria) snaps = snaps.filter((s) => valorDe(s) !== null);
+
       if (snaps.length < 2) {
         $('historico-empty').style.display = 'block';
+        $('historico-empty-msg').textContent = totalSnaps === 0
+          ? 'Sem snapshots ainda.'
+          : (categoria ? `Ainda não tem histórico suficiente de ${prettyLabel(categoria)}.` : 'Ainda não tem histórico suficiente nesse período.');
         $('line-svg').style.display = 'none';
         $('line-legend').style.display = 'none';
         $('hist-stats').style.display = 'none';
+        $('historico-pouco-dado').style.display = 'none';
         return;
       }
       $('historico-empty').style.display = 'none';
       $('line-svg').style.display = 'block';
-      $('line-legend').style.display = 'flex';
       $('hist-stats').style.display = 'grid';
 
-      // PASSO — repaginação 2026-07-19 (queixa do Marcelo: grafico "pobre"):
-      // 1) rotulo do eixo X do ultimo ponto cortava na borda (text-anchor middle
-      //    sem espaco) -> agora ancora start/middle/end conforme a posicao.
-      // 2) linha Liquido era cinza-fosca sem preenchimento, parecia esquecida ->
-      //    passou a usar --blue (cor oficial de "liquidez" no padrao visual) com
-      //    area propria, igual o Bruto ja tinha.
-      // 3) linhas retas/anguladas (poligonal) -> curva suave (Catmull-Rom -> Bezier).
-      const W = 400, H = 200, padL = 42, padR = 14, padT = 14, padB = 24;
-      const serie = state.historicoSerie;
+      // Aviso "início de histórico": com poucos pontos (snapshot é mensal),
+      // o gráfico fica naturalmente esparso — isso não é bug, é avisado.
+      if (totalSnaps < 4) {
+        $('historico-pouco-dado').style.display = 'block';
+        $('historico-pouco-dado').textContent = `Histórico começando: ${totalSnaps} snapshot${totalSnaps > 1 ? 's' : ''} até agora (1 novo por mês). O gráfico fica mais rico com o tempo.`;
+      } else {
+        $('historico-pouco-dado').style.display = 'none';
+      }
+
+      const W = 400, H = 170, padL = 40, padR = 12, padT = 12, padB = 22;
+      const serie = categoria ? 'unica' : state.historicoSerie;
       const valsArr = [];
-      if (serie === 'bruto' || serie === 'ambos') snaps.forEach(s => valsArr.push(s.total_bruto));
-      if (serie === 'liquido' || serie === 'ambos') snaps.forEach(s => valsArr.push(s.total_liquido));
+      if (categoria) snaps.forEach(s => valsArr.push(valorDe(s)));
+      else {
+        if (serie === 'bruto' || serie === 'ambos') snaps.forEach(s => valsArr.push(s.total_bruto));
+        if (serie === 'liquido' || serie === 'ambos') snaps.forEach(s => valsArr.push(s.total_liquido));
+      }
       const minV = Math.min(...valsArr), maxV = Math.max(...valsArr);
-      const spread = (maxV - minV) || 1;
-      // Respiro de 12% acima/abaixo pra curva nao encostar no teto/chao do box.
-      const folga = spread * 0.12;
+      const spread = (maxV - minV) || Math.abs(maxV) * 0.1 || 1;
+      // Respiro de 15% acima/abaixo pra curva nao encostar no teto/chao do box.
+      const folga = spread * 0.15;
       const loV = minV - folga, hiV = maxV + folga;
       const range = (hiV - loV) || 1;
       const x = (i) => padL + ((W - padL - padR) * i / (snaps.length - 1));
       const y = (v) => padT + (H - padT - padB) * (1 - (v - loV) / range);
 
       // Catmull-Rom -> Bezier cubica: deixa a linha suave sem inventar dado
-      // (ainda passa exatamente em cima de cada ponto real).
+      // (ainda passa exatamente em cima de cada ponto real). Com só 2-3 pontos
+      // a curva vira quase uma reta sozinha (matematicamente correto).
       function smoothPath(pts) {
         if (pts.length < 2) return '';
         let d = `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)}`;
@@ -2391,40 +2467,48 @@
         return d;
       }
 
-      const ptsBruto = snaps.map((s, i) => ({ x: x(i), y: y(s.total_bruto) }));
-      const ptsLiq   = snaps.map((s, i) => ({ x: x(i), y: y(s.total_liquido) }));
-      const pathBruto = smoothPath(ptsBruto);
-      const pathLiq   = smoothPath(ptsLiq);
-
       const labelsX = snaps.map((s, i) => {
         if (snaps.length > 6 && i % Math.ceil(snaps.length / 6) !== 0 && i !== snaps.length - 1) return '';
         const d = String(s.data).slice(5);
         const anchor = i === 0 ? 'start' : (i === snaps.length - 1 ? 'end' : 'middle');
-        return `<text x="${x(i)}" y="${H - 8}" fill="var(--text-4)" font-size="9" font-family="Inter" text-anchor="${anchor}" font-weight="500">${d}</text>`;
+        return `<text x="${x(i)}" y="${H - 6}" fill="var(--text-4)" font-size="9" font-family="Inter" text-anchor="${anchor}" font-weight="500">${d}</text>`;
       }).join('');
 
       const yTicks = [loV, (loV + hiV) / 2, hiV].map(v => {
         const yv = y(v);
         return `
           <line x1="${padL}" y1="${yv}" x2="${W - padR}" y2="${yv}" stroke="var(--bg-3)" stroke-dasharray="2,3"/>
-          <text x="${padL - 6}" y="${yv + 3}" fill="var(--text-4)" font-size="9" font-family="Inter" font-weight="500" text-anchor="end">${Math.round(v / 1000)}k</text>
+          <text x="${padL - 6}" y="${yv + 3}" fill="var(--text-4)" font-size="9" font-family="Inter" font-weight="500" text-anchor="end">${fmtTickBRL(v)}</text>
         `;
       }).join('');
 
       let linhas = '', pontos = '', area = '';
-      if (serie === 'ambos' || serie === 'liquido') {
-        const areaLiqPath = pathLiq + ` L ${x(snaps.length-1).toFixed(2)} ${H-padB} L ${padL} ${H-padB} Z`;
-        area += `<path d="${areaLiqPath}" fill="url(#gradLiquido)"/>`;
-        linhas += `<path d="${pathLiq}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round"/>`;
-        pontos += ptsLiq.map(p => `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3" fill="var(--bg-1)" stroke="var(--blue)" stroke-width="2"/>`).join('');
-      }
-      if (serie === 'ambos' || serie === 'bruto') {
-        const areaPath = pathBruto + ` L ${x(snaps.length-1).toFixed(2)} ${H-padB} L ${padL} ${H-padB} Z`;
-        area += `<path d="${areaPath}" fill="url(#gradBruto)"/>`;
-        linhas += `<path d="${pathBruto}" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"/>`;
-        pontos += ptsBruto.map(p => `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3.5" fill="var(--bg-1)" stroke="var(--green)" stroke-width="2.5"/>`).join('');
+      const areaFecha = (path) => path + ` L ${x(snaps.length - 1).toFixed(2)} ${H - padB} L ${padL} ${H - padB} Z`;
+
+      if (categoria) {
+        const pts = snaps.map((s, i) => ({ x: x(i), y: y(valorDe(s)) }));
+        const path = smoothPath(pts);
+        area += `<path d="${areaFecha(path)}" fill="url(#gradCategoria)"/>`;
+        linhas += `<path d="${path}" fill="none" stroke="var(--purple)" stroke-width="2.5" stroke-linecap="round"/>`;
+        pontos += pts.map(p => `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3.5" fill="var(--bg-1)" stroke="var(--purple)" stroke-width="2.5"/>`).join('');
+      } else {
+        const ptsBruto = snaps.map((s, i) => ({ x: x(i), y: y(s.total_bruto) }));
+        const ptsLiq   = snaps.map((s, i) => ({ x: x(i), y: y(s.total_liquido) }));
+        if (serie === 'ambos' || serie === 'liquido') {
+          const path = smoothPath(ptsLiq);
+          area += `<path d="${areaFecha(path)}" fill="url(#gradLiquido)"/>`;
+          linhas += `<path d="${path}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round"/>`;
+          pontos += ptsLiq.map(p => `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3" fill="var(--bg-1)" stroke="var(--blue)" stroke-width="2"/>`).join('');
+        }
+        if (serie === 'ambos' || serie === 'bruto') {
+          const path = smoothPath(ptsBruto);
+          area += `<path d="${areaFecha(path)}" fill="url(#gradBruto)"/>`;
+          linhas += `<path d="${path}" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"/>`;
+          pontos += ptsBruto.map(p => `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3.5" fill="var(--bg-1)" stroke="var(--green)" stroke-width="2.5"/>`).join('');
+        }
       }
 
+      $('line-svg').setAttribute('viewBox', `0 0 ${W} ${H}`);
       $('line-svg').innerHTML = `
         <defs>
           <linearGradient id="gradBruto" x1="0" y1="0" x2="0" y2="1">
@@ -2435,6 +2519,10 @@
             <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.18"/>
             <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
           </linearGradient>
+          <linearGradient id="gradCategoria" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#a855f7" stop-opacity="0.24"/>
+            <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
+          </linearGradient>
         </defs>
         ${yTicks}
         ${area}
@@ -2443,15 +2531,24 @@
         ${labelsX}
       `;
 
+      $('line-legend').style.display = categoria ? 'none' : 'flex';
+
       const first = snaps[0], last = snaps[snaps.length - 1];
-      const deltaBruto = last.total_bruto - first.total_bruto;
-      const deltaPct = deltaBruto / (first.total_bruto || 1);
+      const valorPrimeiro = categoria ? valorDe(first) : first.total_bruto;
+      const valorUltimo = categoria ? valorDe(last) : last.total_bruto;
+      const deltaBruto = valorUltimo - valorPrimeiro;
+      const deltaPct = deltaBruto / (valorPrimeiro || 1);
       const deltaCls = deltaBruto > 0 ? 'pos' : (deltaBruto < 0 ? 'neg' : '');
       $('hist-stats').innerHTML = `
-        <div class="cell"><div class="l">Inicio</div><div class="v num">${showC(first.total_bruto)}</div></div>
-        <div class="cell"><div class="l">Atual</div><div class="v num">${showC(last.total_bruto)}</div></div>
+        <div class="cell"><div class="l">Início</div><div class="v num">${showC(valorPrimeiro)}</div></div>
+        <div class="cell"><div class="l">Atual</div><div class="v num">${showC(valorUltimo)}</div></div>
         <div class="cell"><div class="l">Variação</div><div class="v num ${deltaCls}">${fmtPct(deltaPct, 1)}</div></div>
       `;
+    }
+
+    function mesesEntre(dataIni, dataFim) {
+      const a = new Date(String(dataIni) + 'T00:00:00Z'), b = new Date(String(dataFim) + 'T00:00:00Z');
+      return Math.max(1, (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()));
     }
 
     function renderAlvo() {

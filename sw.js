@@ -8,7 +8,7 @@
 // IMPORTANTE: BUMP CACHE_NAME quando uma ENTREGA fecha (não a cada ajuste fino
 // dentro da mesma sessão — convenção mudou 2026-07-19, ver comentário do
 // APP_VERSION no index.html). Isso forca o SW antigo a cair e limpar caches obsoletos.
-const CACHE_NAME = 'helios-neo-v5.5';
+const CACHE_NAME = 'helios-neo-v5.6';
 const STATIC_ASSETS = [
   './',
   './index.html',
