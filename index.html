@@ -274,7 +274,7 @@
          facil de ler numa tela grande). Alvo em 2 colunas — cada categoria
          vira um card menor lado a lado, igual um formulario de verdade. */
       .line-chart-box { padding: 20px; }
-      .line-chart-box svg { max-height: 260px; }
+      .line-chart-box svg { height: 250px; }
       #alvo-list {
         display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px;
         align-items: start;
@@ -768,7 +768,12 @@
       background: var(--bg-1); border: 1px solid var(--border);
       border-radius: var(--r-lg); padding: 14px 12px 10px 12px;
     }
-    .line-chart-box svg { width: 100%; height: auto; max-height: 260px; display: block; }
+    /* Altura fixa (nao auto/max-height) de proposito: renderHistChart() mede
+       o box real via getBoundingClientRect() e desenha o viewBox exatamente
+       nesse tamanho, pra nunca ter descompasso de proporcao entre viewBox e
+       caixa renderizada -- era isso que esticava os numeros no desktop
+       (tela larga + preserveAspectRatio="none" = distorcao horizontal). */
+    .line-chart-box svg { width: 100%; height: 200px; display: block; }
     .line-chart-box .legend-line {
       display: flex; gap: 14px; margin-top: 0;
       font-size: 10.5px; color: var(--text-3); font-weight: 500;
@@ -1344,7 +1349,7 @@
         <div id="historico-conteudo" style="display:none;">
           <div class="line-chart-box" id="hist-card-liquido">
             <div class="hist-card-title">Patrimônio líquido</div>
-            <svg id="hist-svg-liquido" viewBox="0 0 400 210" preserveAspectRatio="none"></svg>
+            <svg id="hist-svg-liquido"></svg>
             <div class="hist-nota" id="hist-nota-liquido"></div>
             <div class="hist-stats" id="hist-stats"></div>
           </div>
@@ -1353,7 +1358,7 @@
               <div class="hist-card-title">Composição, por categoria</div>
               <div class="legend-line" id="hist-legend-categoria"></div>
             </div>
-            <svg id="hist-svg-categoria" viewBox="0 0 400 210" preserveAspectRatio="none"></svg>
+            <svg id="hist-svg-categoria"></svg>
             <div class="hist-nota" id="hist-nota-categoria"></div>
           </div>
         </div>
@@ -1453,7 +1458,7 @@
     // Se estiver no meio de várias correções rápidas e precisar ver a última
     // versão AGORA (sem esperar fechar), avisar o Marcelo pra dar hard-reload
     // ou limpar o cache do SW manualmente em vez de forçar um bump por push.
-    const APP_VERSION = 'v5.7.1';
+    const APP_VERSION = 'v5.7.2';
     console.log('[Helios Neo] build ' + APP_VERSION);
     document.querySelectorAll('.build-tag').forEach((el) => { el.textContent = APP_VERSION; });
 
@@ -2415,7 +2420,15 @@
     // de cada serie maior/destacado em vermelho, mes embaixo (da ultima serie).
     function renderHistChart(svgId, snaps, series) {
       const svg = $(svgId);
-      const W = 400, H = 210, padL = 38, padR = 10, padT = 46, padB = 20;
+      // Mede o box real em pixel (CSS define altura fixa: 200px mobile /
+      // 250px desktop, largura 100% do card) e desenha o viewBox EXATAMENTE
+      // nesse tamanho -- 1 unidade do viewBox = 1px real, sempre. Isso evita
+      // qualquer descompasso de proporcao entre viewBox e caixa renderizada
+      // (era isso que esticava os numeros horizontalmente no desktop).
+      const rect = svg.getBoundingClientRect();
+      const W = Math.round(rect.width) || 400;
+      const H = Math.round(rect.height) || 200;
+      const padL = 38, padR = 10, padT = 46, padB = 20;
       const n = snaps.length;
       const allVals = series.flatMap(s => s.data);
       const ticks = niceTicks(Math.min(...allVals), Math.max(...allVals), 4);
@@ -3203,6 +3216,11 @@
       if (v === 'ativos') renderChipsC1();
       if (v === 'fundamentos' && !state.fundamentosLoaded) carregarFundamentos();
       if (v === 'parametros' && !state.parametrosLoaded) carregarParametros();
+      // Historico precisa re-renderizar ao entrar na aba: o SVG mede o box
+      // real em pixel (getBoundingClientRect) pra desenhar sem distorcer, e
+      // isso da 0 se a view ainda estava com display:none (ex: no carregamento
+      // inicial, antes do usuario clicar em "Historico" pela 1a vez).
+      if (v === 'historico') renderHistorico();
     }
 
     $('viz-toggle-alocacao').querySelectorAll('button').forEach(b => {
