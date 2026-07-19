@@ -116,6 +116,17 @@
       font-size: 11px; color: var(--text-4); letter-spacing: 3px;
       text-transform: uppercase; margin-bottom: 48px; font-weight: 500;
     }
+    /* Versao/build: discreto, canto inferior direito, combina com o disfarce
+       de "console de diagnostico" (parece um numero de firmware). Mesmo texto
+       aparece no header do app (.build-tag). Ver APP_VERSION no <script>. */
+    .build-tag {
+      position: fixed; bottom: 14px; right: 16px;
+      font-size: 9px; color: var(--text-5); letter-spacing: 1px;
+      font-variant-numeric: tabular-nums; z-index: 201; user-select: none;
+    }
+    header.topbar .build-tag {
+      position: static; margin-left: 8px; font-size: 9px;
+    }
     #login-screen .pin-input {
       background: var(--bg-1); border: 1px solid var(--border);
       color: var(--green); font-size: 28px; font-weight: 700;
@@ -1080,6 +1091,7 @@
     <input type="password" inputmode="numeric" maxlength="4" autocomplete="off"
            id="senha-input" class="pin-input" placeholder="••••">
     <div class="error" id="login-error"></div>
+    <div class="build-tag" id="build-tag-login"></div>
   </section>
 
   <!-- APP -->
@@ -1087,7 +1099,7 @@
     <header class="topbar">
       <!-- Header interno do app: nome real ("Status Patrimonio").
            DISFARCE EXTERNO (login screen, manifest, title da aba) continua "HELIOS NEO". -->
-      <div class="brand"><span class="dot"></span>STATUS PATRIMÔNIO</div>
+      <div class="brand"><span class="dot"></span>STATUS PATRIMÔNIO<span class="build-tag" id="build-tag-app"></span></div>
       <div class="actions">
         <button id="btn-camuflagem" class="icon-btn" title="Camuflagem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
         <button id="btn-refresh" class="icon-btn" title="Atualizar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg></button>
@@ -1307,6 +1319,14 @@
     // Migrado 2026-07-19: antes API_URL/TOKEN/SENHA ficavam expostos aqui em texto puro
     // (dava pra ver com F12). Agora o app chama /api/* (Cloudflare Functions, mesmo domínio)
     // e o PIN só é checado no servidor — nada de senha/token sobra no código-fonte.
+
+    // Versao do build: mostrada discretamente no login e no header (.build-tag),
+    // e no console (F12) pra conferencia rapida. TODA VEZ que fizer deploy de algo
+    // novo, sobe esse numero E o CACHE_NAME no sw.js (mesmo numero nos dois, pra
+    // saber na hora qual versao ta rodando e forcar o navegador a buscar a nova).
+    const APP_VERSION = 'v5.3';
+    console.log('[Helios Neo] build ' + APP_VERSION);
+    document.querySelectorAll('.build-tag').forEach((el) => { el.textContent = APP_VERSION; });
 
     // Paleta semantica variada pro donut/barras
     const PALETA = ['#10b981','#3b82f6','#a855f7','#f59e0b','#06b6d4','#ec4899','#14b8a6','#f97316','#8b5cf6','#84cc16'];
