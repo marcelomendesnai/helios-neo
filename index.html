@@ -1300,9 +1300,9 @@
 
   <script>
     // ==================== CONFIG ====================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxwn8eM4R9sLQUaLTpaGURBq0C05d80ag-hLD6aA8-SHjWEyWJdcOSSKg4App73_Y-wIg/exec';
-    const TOKEN   = '7b08de3eb6c64cfcae98e27d6c4f952b';
-    const SENHA   = '9832';
+    // Migrado 2026-07-19: antes API_URL/TOKEN/SENHA ficavam expostos aqui em texto puro
+    // (dava pra ver com F12). Agora o app chama /api/* (Cloudflare Functions, mesmo domínio)
+    // e o PIN só é checado no servidor — nada de senha/token sobra no código-fonte.
 
     // Paleta semantica variada pro donut/barras
     const PALETA = ['#10b981','#3b82f6','#a855f7','#f59e0b','#06b6d4','#ec4899','#14b8a6','#f97316','#8b5cf6','#84cc16'];
@@ -1465,9 +1465,14 @@
       window._toastT = setTimeout(() => t.classList.remove('on'), ms);
     }
 
-    async function api(action, extra = {}) {
-      const params = new URLSearchParams({ action, token: TOKEN, ...extra });
-      const r = await fetch(API_URL + '?' + params.toString(), { method: 'GET', redirect: 'follow' });
+    async function api(action) {
+      const r = await fetch('/api/' + action, { method: 'GET' });
+      if (r.status === 401) {
+        // sessao expirou ou nunca logou - volta pra tela de PIN
+        $('app').style.display = 'none';
+        $('login-screen').style.display = 'flex';
+        throw new Error('sessao_expirada');
+      }
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     }
@@ -1479,24 +1484,42 @@
     function saveAlvo() { localStorage.setItem('helios_alvo', JSON.stringify(state.alvoPercentuais)); }
 
     // ==================== LOGIN ====================
+    // PIN agora eh checado no servidor (POST /api/login), nao mais comparado
+    // aqui no JS do navegador. Se acertar, o servidor devolve um cookie de
+    // sessao (HttpOnly) que o navegador manda sozinho nas chamadas seguintes.
     const senhaInput = $('senha-input');
     setTimeout(() => senhaInput.focus(), 100);
-    senhaInput.addEventListener('input', () => {
+    senhaInput.addEventListener('input', async () => {
       if (senhaInput.value.length === 4) {
-        if (senhaInput.value === SENHA) {
-          $('login-screen').style.display = 'none';
-          $('app').style.display = 'block';
-          load();
-        } else {
+        const pin = senhaInput.value;
+        senhaInput.disabled = true;
+        try {
+          const r = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin })
+          });
+          const j = await r.json().catch(() => ({}));
+          if (r.ok && j.ok) {
+            $('login-screen').style.display = 'none';
+            $('app').style.display = 'block';
+            load();
+            return;
+          }
+          throw new Error('pin_incorreto');
+        } catch (e) {
           $('login-error').textContent = 'Senha incorreta';
           senhaInput.classList.add('shake');
           setTimeout(() => {
             senhaInput.classList.remove('shake');
             senhaInput.value = '';
+            senhaInput.disabled = false;
             $('login-error').textContent = '';
             senhaInput.focus();
           }, 500);
+          return;
         }
+        senhaInput.disabled = false;
       } else {
         $('login-error').textContent = '';
       }
@@ -2471,7 +2494,8 @@
       }
     });
 
-    $('btn-logout').addEventListener('click', () => {
+    $('btn-logout').addEventListener('click', async () => {
+      try { await fetch('/api/logout', { method: 'POST' }); } catch (e) { /* segue mesmo se falhar */ }
       $('app').style.display = 'none';
       $('login-screen').style.display = 'flex';
       senhaInput.value = '';

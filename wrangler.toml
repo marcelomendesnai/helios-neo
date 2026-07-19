@@ -1,0 +1,8 @@
+name = "helios-neo"
+compatibility_date = "2026-07-19"
+pages_build_output_dir = "."
+
+[[d1_databases]]
+binding = "DB"
+database_name = "helios_pat"
+database_id = "fcc019b7-b840-4c17-a489-27519999ca7e"
