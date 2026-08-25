@@ -21,8 +21,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#09090b">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0d0c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Helios Neo">
@@ -32,7 +32,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     /* ==================== RESET + BASE ==================== */
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1171,16 +1171,18 @@
       #login-screen .sub { font-size: 12px; }
     }
   </style>
+  <link rel="stylesheet" href="styles-v6.css">
 </head>
 <body>
 
   <!-- LOGIN -->
   <section id="login-screen">
-    <div class="brand">HELIOS NEO</div>
-    <div class="sub">Console de Diagnostico</div>
+    <div class="brand">HELIOS</div>
+    <div class="sub">Console de diagnóstico</div>
+    <label for="senha-input" class="sr-only">PIN de acesso</label>
     <input type="password" inputmode="numeric" maxlength="4" autocomplete="off"
-           id="senha-input" class="pin-input" placeholder="••••">
-    <div class="error" id="login-error"></div>
+           id="senha-input" class="pin-input" placeholder="••••" aria-describedby="login-error">
+    <div class="error" id="login-error" role="alert" aria-live="assertive"></div>
     <div class="build-tag" id="build-tag-login"></div>
   </section>
 
@@ -1189,11 +1191,15 @@
     <header class="topbar">
       <!-- Header interno do app: nome real ("Status Patrimonio").
            DISFARCE EXTERNO (login screen, manifest, title da aba) continua "HELIOS NEO". -->
-      <div class="brand"><span class="dot"></span>STATUS PATRIMÔNIO<span class="build-tag" id="build-tag-app"></span></div>
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-copy"><strong>Patrimônio</strong><small>Visão consolidada · <span id="sync-status">Atualizando…</span></small></span>
+        <span class="build-tag" id="build-tag-app"></span>
+      </div>
       <div class="actions">
-        <button id="btn-camuflagem" class="icon-btn" title="Camuflagem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
-        <button id="btn-refresh" class="icon-btn" title="Atualizar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg></button>
-        <button id="btn-logout" class="icon-btn" title="Sair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+        <button id="btn-camuflagem" class="icon-btn" title="Ocultar valores" aria-label="Ocultar valores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button id="btn-refresh" class="icon-btn" title="Atualizar dados" aria-label="Atualizar dados"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg></button>
+        <button id="btn-logout" class="icon-btn" title="Sair" aria-label="Encerrar sessão"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
       </div>
     </header>
 
@@ -1291,8 +1297,8 @@
       <div class="view" data-view="ativos">
         <div class="search-wrap search-wrap-add">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-          <input type="search" id="search-ativos" placeholder="Buscar ativo, ticker…">
-          <button id="btn-add-ativo" class="add-ativo-btn" title="Novo ativo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          <input type="search" id="search-ativos" placeholder="Buscar ativo, ticker…" aria-label="Buscar ativos">
+          <button id="btn-add-ativo" class="add-ativo-btn" title="Novo ativo" aria-label="Adicionar ativo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
         </div>
 
         <div class="chips-scroll" id="chips-c1"></div>
@@ -1404,7 +1410,7 @@
       </div>
     </main>
 
-    <nav class="bottom-nav">
+    <nav class="bottom-nav" aria-label="Navegação principal">
       <button data-nav="home" class="active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
@@ -1433,14 +1439,14 @@
   </div>
 
   <!-- MODAL DETALHE -->
-  <div class="modal-overlay" id="modal">
+  <div class="modal-overlay" id="modal" role="dialog" aria-modal="true" aria-label="Detalhes">
     <div class="modal-card">
-      <button class="close" onclick="closeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="close" id="modal-close" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       <div id="modal-content"></div>
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
     // ==================== CONFIG ====================
@@ -1458,7 +1464,7 @@
     // Se estiver no meio de várias correções rápidas e precisar ver a última
     // versão AGORA (sem esperar fechar), avisar o Marcelo pra dar hard-reload
     // ou limpar o cache do SW manualmente em vez de forçar um bump por push.
-    const APP_VERSION = 'v5.7.2';
+    const APP_VERSION = 'v6.0.0';
     console.log('[Helios Neo] build ' + APP_VERSION);
     document.querySelectorAll('.build-tag').forEach((el) => { el.textContent = APP_VERSION; });
 
@@ -1693,15 +1699,13 @@
     // ==================== LOAD ====================
     async function load() {
       try {
-        const [dashRes, ativosRes, snapRes] = await Promise.all([
-          api('dashboard'),
-          api('ativos'),
-          api('snapshots')
-        ]);
-        if (!dashRes.ok || !ativosRes.ok) throw new Error('resposta_invalida');
-        state.dashboard = dashRes.data;
-        state.ativos = ativosRes.data;
-        state.snapshots = snapRes.ok ? (snapRes.data || []) : [];
+        const bootstrap = await api('bootstrap');
+        if (!bootstrap.ok || !bootstrap.data) throw new Error('resposta_invalida');
+        state.dashboard = bootstrap.data.dashboard;
+        state.ativos = bootstrap.data.ativos || [];
+        state.snapshots = bootstrap.data.snapshots || [];
+        const atualizado = state.dashboard && state.dashboard.atualizado_em ? new Date(state.dashboard.atualizado_em) : null;
+        $('sync-status').textContent = atualizado && !isNaN(atualizado) ? atualizado.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Atualizado';
         renderAll();
       } catch (e) {
         // Mensagens mais claras conforme o tipo de erro:
@@ -1820,11 +1824,11 @@
           : (isNeg ? '−' + fmtBRLCompact(Math.abs(valor)) : fmtBRLCompact(valor));
         const pctTxt = (isNeg ? '−' : '') + (fracAbs * 100).toFixed(1) + '%';
         return `
-          <div class="aloc-row${isNeg ? ' neg' : ''}" data-c2="${nm}" style="cursor:pointer;">
+          <div class="aloc-row${isNeg ? ' neg' : ''}" data-c2="${escAttr(nm)}" style="cursor:pointer;">
             <div class="ico-wrap" style="background:${corBg};color:${cor}">${iconForClasse(nm)}</div>
             <div class="body">
               <div class="top">
-                <span class="nm">${prettyLabel(nm)}</span>
+                <span class="nm">${safeLabel(nm)}</span>
                 <span class="vl num" style="${isNeg ? 'color:var(--red)' : ''}">${valorTxt}</span>
               </div>
               <div class="bar"><div style="width:${(fracAbs*100).toFixed(1)}%;background:${cor}"></div></div>
@@ -1859,7 +1863,7 @@
 
       $('modal-content').innerHTML = `
         <div class="classif" style="margin-bottom:4px;">Categoria</div>
-        <h2>${prettyLabel(c2)}</h2>
+        <h2>${safeLabel(c2)}</h2>
         <div class="modal-hero-val">
           <div class="l">${isNeg ? 'Total Devido' : 'Total da Categoria'}</div>
           <div class="v${isNeg ? ' neg' : ''} num">${totalTxt}</div>
@@ -1879,8 +1883,8 @@
                 <div class="left">
                   <div class="ico-wrap">${iconForClasse(a.classif_1)}</div>
                   <div class="info">
-                    <div class="nome">${badgesHtml(a)}${a.nome}</div>
-                    <div class="classif">${prettyLabel([a.classif_3, a.classif_4].filter(Boolean).join(' › ') || a.ticker_api || '')}</div>
+                    <div class="nome">${badgesHtml(a)}${escHtml(a.nome)}</div>
+                    <div class="classif">${safeLabel([a.classif_3, a.classif_4].filter(Boolean).join(' › ') || a.ticker_api || '')}</div>
                   </div>
                 </div>
                 <div class="right">
@@ -1953,7 +1957,7 @@
       const leg = paths.map(s => `
         <div class="legend-row" data-classe="${s.nome}">
           <span class="swatch" style="background:${s.cor}"></span>
-          <span class="nm">${prettyLabel(s.nome)}</span>
+          <span class="nm">${safeLabel(s.nome)}</span>
           <span class="pc num">${(s.frac * 100).toFixed(1)}%</span>
           <span class="vl num">${showC(s.valor)}</span>
         </div>
@@ -1973,7 +1977,7 @@
       const html = slices.map(s => `
         <div class="bars-row">
           <div class="head">
-            <span class="nm">${prettyLabel(s.nome)}</span>
+            <span class="nm">${safeLabel(s.nome)}</span>
             <div class="right">
               <span class="pct num">${(s.frac * 100).toFixed(1)}%</span>
               <span class="vl num">${showC(s.valor)}</span>
@@ -1999,7 +2003,7 @@
       const maiorGanho = comVar.reduce((m, a) => (!m || pctEfetivo(a) > pctEfetivo(m)) ? a : m, null);
       const maiorPerda = comVar.reduce((m, a) => (!m || pctEfetivo(a) < pctEfetivo(m)) ? a : m, null);
       const concEntry = Object.entries(porC1).filter(([_,v]) => v>0).sort((a,b)=>b[1]-a[1])[0];
-      const concTxt = concEntry ? `${prettyLabel(concEntry[0])} (${(concEntry[1]/total*100).toFixed(0)}%)` : '—';
+      const concTxt = concEntry ? `${safeLabel(concEntry[0])} (${(concEntry[1]/total*100).toFixed(0)}%)` : '—';
 
       let liq = 0;
       positivos.forEach(a => { if (isLiquido(a)) liq += a.total_atual; });
@@ -2016,7 +2020,7 @@
             <div class="ico">${ICONS.crown}</div>
             <div class="txt">
               <div class="t">Maior Posição</div>
-              <div class="v">${maior.nome}</div>
+              <div class="v">${escHtml(maior.nome)}</div>
               <div class="s num">${show(maior.total_atual)}</div>
             </div>
           </div>` : ''}
@@ -2041,7 +2045,7 @@
             <div class="ico">${ICONS.trending_up}</div>
             <div class="txt">
               <div class="t">Maior Ganho${pctEhReal(maiorGanho) ? ' (real)' : ''}</div>
-              <div class="v">${maiorGanho.nome}</div>
+              <div class="v">${escHtml(maiorGanho.nome)}</div>
               <div class="s num">${fmtPctMarcado(maiorGanho)}</div>
             </div>
           </div>` : ''}
@@ -2050,7 +2054,7 @@
             <div class="ico">${ICONS.trending_dn}</div>
             <div class="txt">
               <div class="t">Maior Perda${pctEhReal(maiorPerda) ? ' (real)' : ''}</div>
-              <div class="v">${maiorPerda.nome}</div>
+              <div class="v">${escHtml(maiorPerda.nome)}</div>
               <div class="s num">${fmtPctMarcado(maiorPerda)}</div>
             </div>
           </div>` : ''}
@@ -2085,8 +2089,8 @@
             <div class="left">
               <div class="ico-wrap">${iconForClasse(a.classif_1)}</div>
               <div class="info">
-                <div class="nome">${a.nome}</div>
-                <div class="classif">${prettyLabel([a.classif_1, a.classif_2].filter(Boolean).join(' › '))}</div>
+                <div class="nome">${escHtml(a.nome)}</div>
+                <div class="classif">${safeLabel([a.classif_1, a.classif_2].filter(Boolean).join(' › '))}</div>
               </div>
             </div>
             <div class="right">
@@ -2113,8 +2117,8 @@
         <button class="chip ${state.ativosChip === '' ? 'active' : ''}" data-c="">
           ${ICONS.grid} Todos <span class="count">${positivos.length}</span>
         </button>` + classes.map(c => `
-          <button class="chip ${state.ativosChip === c ? 'active' : ''}" data-c="${c}">
-            ${iconForClasse(c)} ${prettyLabel(c)} <span class="count">${porC1[c]}</span>
+          <button class="chip ${state.ativosChip === c ? 'active' : ''}" data-c="${escAttr(c)}">
+            ${iconForClasse(c)} ${safeLabel(c)} <span class="count">${porC1[c]}</span>
           </button>
         `).join('');
       wrap.querySelectorAll('.chip').forEach(ch => {
@@ -2208,8 +2212,8 @@
                   <div class="left">
                     <div class="ico-wrap">${iconForClasse(a.classif_1)}</div>
                     <div class="info">
-                      <div class="nome">${badgesHtml(a)}${a.nome}</div>
-                      <div class="classif">${prettyLabel([a.classif_3, a.classif_4].filter(Boolean).join(' › ') || a.ticker_api || '')}</div>
+                      <div class="nome">${badgesHtml(a)}${escHtml(a.nome)}</div>
+                      <div class="classif">${safeLabel([a.classif_3, a.classif_4].filter(Boolean).join(' › ') || a.ticker_api || '')}</div>
                     </div>
                   </div>
                   <div class="right">
@@ -2222,7 +2226,7 @@
               <div>
                 <div class="subcat-head">
                   <div class="row1">
-                    <span class="title">${prettyLabel(c2)}</span>
+                    <span class="title">${safeLabel(c2)}</span>
                     <span class="vl">${show(soma2)}</span>
                   </div>
                   <div class="row2">
@@ -2245,7 +2249,7 @@
             <div class="head">
               <div>
                 <div class="head-inner" style="display:flex;align-items:center;gap:4px;">
-                  <span class="nome">${prettyLabel(c1)}</span>
+                  <span class="nome">${safeLabel(c1)}</span>
                   <span class="chev">${ICONS.chev_right}</span>
                 </div>
                 <div class="pct num">${pct.toFixed(1)}% · ${Object.values(c2s).flat().length} itens</div>
@@ -2281,8 +2285,8 @@
             <div class="left">
               <div class="ico-wrap">${iconForClasse(a.classif_1)}</div>
               <div class="info">
-                <div class="nome">${badgesHtml(a)}${a.nome}</div>
-                <div class="classif">${prettyLabel([a.classif_1, a.classif_2].filter(Boolean).join(' › '))}</div>
+                <div class="nome">${badgesHtml(a)}${escHtml(a.nome)}</div>
+                <div class="classif">${safeLabel([a.classif_1, a.classif_2].filter(Boolean).join(' › '))}</div>
               </div>
             </div>
             <div class="right">
@@ -2307,12 +2311,12 @@
         // Mantem layout simetrico (vl esquerda, vr direita) entre todos os cards.
         const pctTxt = v == null ? '<span style="color:var(--text-5)">—</span>' : fmtPctMarcado(a, 1);
         return `
-          <div class="compact-card ${a.total_atual<0?'neg':''}" data-ativo-id="${a.id}" title="${a.nome}">
+          <div class="compact-card ${a.total_atual<0?'neg':''}" data-ativo-id="${escAttr(a.id)}" title="${escAttr(a.nome)}">
             <div class="top">
               <div class="ico-wrap">${iconForClasse(a.classif_1)}</div>
               <div class="title">
-                <div class="nm" title="${a.nome}">${a.nome}</div>
-                <div class="cl">${prettyLabel(a.classif_1 || '—')}</div>
+                <div class="nm" title="${escAttr(a.nome)}">${escHtml(a.nome)}</div>
+                <div class="cl">${safeLabel(a.classif_1 || '—')}</div>
               </div>
             </div>
             <div class="bot">
@@ -2346,8 +2350,8 @@
           <div class="left">
             <div class="ico-wrap" style="background:var(--red-bg);color:var(--red);">${ICONS.alert}</div>
             <div class="info">
-              <div class="nome"><span class="badge div">DÍVIDA</span>${a.nome}</div>
-              <div class="classif">${prettyLabel([a.classif_1, a.classif_2, a.classif_3].filter(Boolean).join(' › '))}</div>
+              <div class="nome"><span class="badge div">DÍVIDA</span>${escHtml(a.nome)}</div>
+              <div class="classif">${safeLabel([a.classif_1, a.classif_2, a.classif_3].filter(Boolean).join(' › '))}</div>
             </div>
           </div>
           <div class="right">
@@ -2495,13 +2499,13 @@
       const paradas = deltas.filter(d => Math.abs(d.delta) < 0.005);
       const moveram = deltas.filter(d => Math.abs(d.delta) >= 0.005).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
       if (paradas.length && moveram.length) {
-        const paradasTxt = paradas.map(d => `<b>${prettyLabel(d.cat)}</b>`).join(', ');
-        const moveramTxt = moveram.map(d => prettyLabel(d.cat)).join(', ');
+        const paradasTxt = paradas.map(d => `<b>${safeLabel(d.cat)}</b>`).join(', ');
+        const moveramTxt = moveram.map(d => safeLabel(d.cat)).join(', ');
         return `${paradasTxt} ficou parad${paradas.length > 1 ? 'as' : 'a'} no período, sem aporte ou baixa registrada. Toda a variação veio de <b>${moveramTxt}</b>.`;
       }
       if (moveram.length) {
         const top = moveram[0];
-        return `Maior parte da variação veio da categoria <b>${prettyLabel(top.cat)}</b> (${fmtPct(top.delta / (top.base || 1), 1)} no período).`;
+        return `Maior parte da variação veio da categoria <b>${safeLabel(top.cat)}</b> (${fmtPct(top.delta / (top.base || 1), 1)} no período).`;
       }
       return 'Sem variação registrada em nenhuma categoria no período.';
     }
@@ -2579,7 +2583,7 @@
         const seriesCategoria = cats.map((c, i) => ({ data: seriesPorCat[c], labels, color: HIST_PALETA_CATEGORIA[i % HIST_PALETA_CATEGORIA.length] }));
         renderHistChart('hist-svg-categoria', snaps, seriesCategoria);
         $('hist-legend-categoria').innerHTML = cats.map((c, i) =>
-          `<span><i style="background:${HIST_PALETA_CATEGORIA[i % HIST_PALETA_CATEGORIA.length]}"></i>${prettyLabel(c)}</span>`
+          `<span><i style="background:${HIST_PALETA_CATEGORIA[i % HIST_PALETA_CATEGORIA.length]}"></i>${safeLabel(c)}</span>`
         ).join('');
         $('hist-nota-categoria').innerHTML = notaCategoria(cats, seriesPorCat);
         $('hist-card-categoria').style.display = 'block';
@@ -2615,9 +2619,9 @@
         const cls = absDesv < 3 ? 'ok' : (absDesv < 8 ? 'warn' : 'bad');
         const desvioStr = (desvio >= 0 ? '+' : '') + desvio.toFixed(1) + 'pp';
         return `
-          <div class="target-row" data-classe="${c}">
+          <div class="target-row" data-classe="${escAttr(c)}">
             <div class="head">
-              <div class="nome">${prettyLabel(c)}</div>
+              <div class="nome">${safeLabel(c)}</div>
               <div class="desvio ${cls} num">${desvioStr}</div>
             </div>
             <div class="spec num">Real: ${realPct.toFixed(1)}% · Alvo: <span class="alvo-val">${alvoPct}</span>%</div>
@@ -2716,7 +2720,7 @@
 
     function openModal(a) {
       if (!a) return;
-      const classif = prettyLabel([a.classif_1, a.classif_2, a.classif_3, a.classif_4].filter(Boolean).join(' › '));
+      const classif = safeLabel([a.classif_1, a.classif_2, a.classif_3, a.classif_4].filter(Boolean).join(' › '));
       const moeda = a.moeda || 'BRL';
       // Modal: hero usa pct efetivo (real se calc_real, senao nominal)
       const pctMod = pctEfetivo(a);
@@ -2729,9 +2733,9 @@
       $('modal-content').innerHTML = `
         <div class="modal-top-row">
           <div class="modal-badges">${badges}</div>
-          <button class="modal-edit-btn" onclick="openEditFormById('${a.id}')">${ICONS.pencil}<span>Editar</span></button>
+          <button class="modal-edit-btn" id="modal-edit-ativo">${ICONS.pencil}<span>Editar</span></button>
         </div>
-        <h2>${a.nome}</h2>
+        <h2>${escHtml(a.nome)}</h2>
         <div class="classif">${classif}</div>
 
         <div class="modal-hero-val">
@@ -2747,7 +2751,7 @@
           </div>
           <div class="cell">
             <div class="l">Moeda</div>
-            <div class="v">${moeda}</div>
+            <div class="v">${escHtml(moeda)}</div>
           </div>
           <div class="cell">
             <div class="l">Preco Atual</div>
@@ -2763,24 +2767,27 @@
           </div>
           <div class="cell">
             <div class="l">Ticker API</div>
-            <div class="v">${a.ticker_api || '—'}</div>
+            <div class="v">${escHtml(a.ticker_api || '—')}</div>
           </div>
-          ${a.observacao ? `<div class="cell full"><div class="l">Observação</div><div class="v" style="font-size:12px;">${a.observacao}</div></div>` : ''}
+          ${a.observacao ? `<div class="cell full"><div class="l">Observação</div><div class="v" style="font-size:12px;">${escHtml(a.observacao)}</div></div>` : ''}
         </div>
 
         ${a.ganho_real ? renderGanhoReal(a) : ''}
 
         <div class="classif-table">
-          <div class="row"><span class="k">Classe 1</span><span class="v">${prettyLabel(a.classif_1 || '—')}</span></div>
-          <div class="row"><span class="k">Classe 2</span><span class="v">${prettyLabel(a.classif_2 || '—')}</span></div>
-          <div class="row"><span class="k">Classe 3</span><span class="v">${prettyLabel(a.classif_3 || '—')}</span></div>
-          <div class="row"><span class="k">Classe 4</span><span class="v">${prettyLabel(a.classif_4 || '—')}</span></div>
+          <div class="row"><span class="k">Classe 1</span><span class="v">${safeLabel(a.classif_1 || '—')}</span></div>
+          <div class="row"><span class="k">Classe 2</span><span class="v">${safeLabel(a.classif_2 || '—')}</span></div>
+          <div class="row"><span class="k">Classe 3</span><span class="v">${safeLabel(a.classif_3 || '—')}</span></div>
+          <div class="row"><span class="k">Classe 4</span><span class="v">${safeLabel(a.classif_4 || '—')}</span></div>
           <div class="row"><span class="k">Liquidez</span><span class="v">${isLiquido(a) ? 'Líquido' : 'Imobilizado'}</span></div>
         </div>
       `;
+      $('modal-edit-ativo').addEventListener('click', () => openEditFormById(a.id));
       $('modal').classList.add('on');
     }
     function closeModal() { $('modal').classList.remove('on'); }
+    $('modal-close').addEventListener('click', closeModal);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('modal').classList.contains('on')) closeModal(); });
     $('modal').addEventListener('click', (e) => {
       if (e.target.id === 'modal') closeModal();
     });
@@ -2801,7 +2808,7 @@
       return [...new Set(state.ativos.map((a) => a[campo]).filter(Boolean))].sort();
     }
     function datalistOptions(campo) {
-      return distinctVals(campo).map((v) => `<option value="${v}"></option>`).join('');
+      return distinctVals(campo).map((v) => `<option value="${escAttr(v)}"></option>`).join('');
     }
 
     // a = null → formulário de criação. a = objeto → edição.
@@ -2949,8 +2956,11 @@
       }
     }
 
-    function escAttr(v) { return (v ?? '').toString().replace(/"/g, '&quot;'); }
-    function escHtml(v) { return (v ?? '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function escHtml(v) {
+      return (v ?? '').toString().replace(/[&<>"']/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+    }
+    function escAttr(v) { return escHtml(v); }
+    function safeLabel(v) { return escHtml(prettyLabel(v)); }
 
     $('btn-add-ativo').addEventListener('click', () => openEditForm(null));
 
@@ -3002,7 +3012,7 @@
       $('fundamentos-empty').style.display = lista.length ? 'none' : 'flex';
       $('fundamentos-list').innerHTML = lista.map((item) => {
         if (item.erro) {
-          return `<div class="card" style="padding:14px;margin-bottom:8px;color:var(--text-4);font-size:12px;">${item.nome} (${item.ticker}) — sem dados da bolsai ainda</div>`;
+          return `<div class="card" style="padding:14px;margin-bottom:8px;color:var(--text-4);font-size:12px;">${escHtml(item.nome)} (${escHtml(item.ticker)}) — sem dados da bolsai ainda</div>`;
         }
         const dots = Object.keys(state.indicadoresMeta).map((ind) => {
           const d = (item.detalhe || []).find((x) => x.indicador === ind);
@@ -3010,10 +3020,10 @@
           return `<span style="width:9px;height:9px;border-radius:50%;background:${cor};display:inline-block;"></span>`;
         }).join('');
         return `
-          <div class="ativo-item" data-ticker="${item.ticker}" style="cursor:pointer;">
+          <div class="ativo-item" data-ticker="${escAttr(item.ticker)}" style="cursor:pointer;">
             <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:600;color:var(--text-1);">${item.nome}</div>
-              <div style="font-size:11px;color:var(--text-4);margin:2px 0 6px;">${item.ticker} · ${prettyLabel(item.setor)}${item.setor_sem_calibracao ? ' · <span style=\"color:var(--amber);\">calibrado agora pela IA</span>' : ''}</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-1);">${escHtml(item.nome)}</div>
+              <div style="font-size:11px;color:var(--text-4);margin:2px 0 6px;">${escHtml(item.ticker)} · ${safeLabel(item.setor)}${item.setor_sem_calibracao ? ' · <span style=\"color:var(--amber);\">calibrado agora pela IA</span>' : ''}</div>
               <div style="display:flex;gap:4px;">${dots}</div>
             </div>
             <div style="text-align:right;flex-shrink:0;margin-left:10px;">
@@ -3036,7 +3046,7 @@
         const valor = item.fundamentos ? item.fundamentos[ind] : null;
         return `
           <div class="cell">
-            <div class="l">${meta.label}</div>
+            <div class="l">${escHtml(meta.label)}</div>
             <div class="v num" style="display:flex;align-items:center;gap:6px;">
               <span style="width:8px;height:8px;border-radius:50%;background:${corSinal(d.sinal)};flex-shrink:0;"></span>
               ${fmtIndicador(ind, valor)}
@@ -3045,25 +3055,31 @@
       }).join('');
       $('modal-content').innerHTML = `
         <div class="modal-top-row">
-          <div class="modal-badges"><span class="badge" style="background:var(--purple-bg);color:var(--purple);">${prettyLabel(item.setor)}</span></div>
+          <div class="modal-badges"><span class="badge" style="background:var(--purple-bg);color:var(--purple);">${safeLabel(item.setor)}</span></div>
         </div>
-        <h2>${item.nome}</h2>
-        <div class="classif">${item.ticker} · balanço ${item.reference_date || '—'}</div>
+        <h2>${escHtml(item.nome)}</h2>
+        <div class="classif">${escHtml(item.ticker)} · balanço ${escHtml(item.reference_date || '—')}</div>
 
         <div class="modal-hero-val">
           <div class="l">Índice de alerta</div>
           <div class="v num" style="color:${corIndiceAlerta(item.indice_alerta)};">${item.indice_alerta ?? '—'}%</div>
         </div>
 
-        ${item.leitura_ia ? `<div class="ganho-real-block"><div class="grb-title">${ICONS.scale} Leitura</div><div style="font-size:12.5px;color:var(--text-2);line-height:1.6;padding-top:6px;">${item.leitura_ia}</div><div class="grb-foot">Leitura automática segundo os parâmetros configurados — não é recomendação de investimento.</div></div>` : ''}
+        ${item.leitura_ia ? `<div class="ganho-real-block"><div class="grb-title">${ICONS.scale} Leitura</div><div style="font-size:12.5px;color:var(--text-2);line-height:1.6;padding-top:6px;">${escHtml(item.leitura_ia)}</div><div class="grb-foot">Leitura automática segundo os parâmetros configurados — não é recomendação de investimento.</div></div>` : ''}
 
         <div class="modal-grid">${linhas}</div>
 
         <div class="edit-actions">
-          <button class="ef-btn ghost" onclick="closeModal()">Fechar</button>
-          <button class="ef-btn primary" onclick="closeModal(); goTo('parametros'); setTimeout(() => abrirSetorParametros('${item.setor}'), 100);">Editar parâmetros de ${prettyLabel(item.setor)}</button>
+          <button class="ef-btn ghost" id="btn-fechar-fundamento">Fechar</button>
+          <button class="ef-btn primary" id="btn-editar-parametros-setor">Editar parâmetros de ${safeLabel(item.setor)}</button>
         </div>
       `;
+      $('btn-fechar-fundamento').addEventListener('click', closeModal);
+      $('btn-editar-parametros-setor').addEventListener('click', () => {
+        closeModal();
+        goTo('parametros');
+        setTimeout(() => abrirSetorParametros(item.setor), 100);
+      });
       $('modal').classList.add('on');
     }
 
@@ -3100,7 +3116,7 @@
             return `
             <div class="edit-form" style="grid-template-columns:1fr;padding:10px 0;border-bottom:1px solid var(--border);margin-top:0;">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                <div style="font-size:12px;font-weight:600;color:var(--text-1);">${meta.label}${p.gerado_por_ia ? ' <span style="font-size:9px;color:var(--amber);font-weight:500;">IA</span>' : ''}</div>
+                <div style="font-size:12px;font-weight:600;color:var(--text-1);">${escHtml(meta.label)}${p.gerado_por_ia ? ' <span style="font-size:9px;color:var(--amber);font-weight:500;">IA</span>' : ''}</div>
                 <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3);">
                   <input type="checkbox" class="pf-aplicavel" ${Number(p.aplicavel) === 1 ? 'checked' : ''} style="width:14px;height:14px;accent-color:var(--green);"> aplicável
                 </label>
@@ -3113,9 +3129,9 @@
             </div>`;
           }).join('');
         return `
-          <div class="card setor-parametros" data-setor="${setor}" style="margin-bottom:12px;padding:14px;">
+          <div class="card setor-parametros" data-setor="${escAttr(setor)}" style="margin-bottom:12px;padding:14px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <div style="font-size:14px;font-weight:700;color:var(--text-1);">${prettyLabel(setor)}</div>
+              <div style="font-size:14px;font-weight:700;color:var(--text-1);">${safeLabel(setor)}</div>
               <button class="ef-btn primary pf-salvar-setor" style="flex:none;padding:8px 16px;font-size:12px;">Salvar</button>
             </div>
             ${linhas}
@@ -3128,7 +3144,7 @@
     }
 
     function abrirSetorParametros(setor) {
-      const card = document.querySelector(`.setor-parametros[data-setor="${setor}"]`);
+      const card = [...document.querySelectorAll('.setor-parametros')].find((el) => el.dataset.setor === setor);
       if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
@@ -3265,3 +3281,4 @@
   </script>
 </body>
 </html>
+

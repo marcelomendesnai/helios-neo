@@ -36,7 +36,7 @@ export function sanitizarAtivoInput(body) {
     if (v === '' || v === undefined) v = null;
     if (campo === 'qtd' || campo === 'preco_medio') {
       v = v === null ? null : Number(v);
-      if (v !== null && isNaN(v)) v = null;
+      if (v !== null && !Number.isFinite(v)) v = null;
     }
     if (campo === 'calc_real') {
       v = (v === true || v === 1 || v === '1') ? 1 : 0;
@@ -102,12 +102,15 @@ async function buscarCotacoesFaltantes(db, tickers, env, hoje) {
   return novas;
 }
 
-async function ipcaAcumulado(dataAquis) {
+async function ipcaAcumulado(db, dataAquis) {
   if (!dataAquis) return null;
   const inicio = new Date(dataAquis + 'T00:00:00Z');
   if (isNaN(inicio.getTime())) return null;
   const hoje = new Date();
   if (inicio >= hoje) return 0;
+  const referencia = hoje.toISOString().slice(0, 10);
+  const cached = await db.prepare('SELECT taxa FROM ipca_cache WHERE data_inicial = ? AND data_referencia = ?').bind(dataAquis, referencia).first();
+  if (cached && Number.isFinite(Number(cached.taxa))) return Number(cached.taxa);
 
   const fmt = (d) => String(d.getUTCDate()).padStart(2, '0') + '/' + String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + d.getUTCFullYear();
   const url = 'https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json&dataInicial=' + fmt(inicio) + '&dataFinal=' + fmt(hoje);
@@ -122,13 +125,17 @@ async function ipcaAcumulado(dataAquis) {
       const v = Number(String(m.valor).replace(',', '.'));
       if (!isNaN(v)) acum *= 1 + v / 100;
     });
-    return acum - 1;
+    const taxa = acum - 1;
+    await db.prepare(
+      'INSERT OR REPLACE INTO ipca_cache (data_inicial, data_referencia, taxa, atualizado_em) VALUES (?, ?, ?, ?)'
+    ).bind(dataAquis, referencia, taxa, new Date().toISOString()).run();
+    return taxa;
   } catch (e) {
     return null;
   }
 }
 
-async function enriquecerAtivo(a, cache) {
+async function enriquecerAtivo(a, cache, db) {
   const cotacaoAuto = a.ticker_api ? cache[a.ticker_api] : null;
   const manualStr = a.preco_atual_manual === null || a.preco_atual_manual === undefined ? '' : String(a.preco_atual_manual).trim();
   const manualNum = Number(manualStr);
@@ -138,14 +145,16 @@ async function enriquecerAtivo(a, cache) {
     ? cotacaoAuto
     : (manualValido ? manualNum : null);
 
-  const pm = Number(a.preco_medio) || 0;
-  const qtd = Number(a.qtd) || 1;
+  const pmNum = Number(a.preco_medio);
+  const pm = Number.isFinite(pmNum) ? pmNum : 0;
+  const qtdNum = Number(a.qtd);
+  const qtd = a.qtd === null || a.qtd === undefined || a.qtd === '' ? 1 : (Number.isFinite(qtdNum) ? qtdNum : 0);
   const total_atual = precoAtual !== null ? precoAtual * qtd : 0;
   const variacao_pct = pm > 0 && precoAtual !== null ? (precoAtual - pm) / pm : null;
 
   let ganho_real = null;
   if (Number(a.calc_real) === 1 && a.data_aquis && pm > 0) {
-    const ipca = await ipcaAcumulado(a.data_aquis);
+    const ipca = await ipcaAcumulado(db, a.data_aquis);
     if (ipca !== null && variacao_pct !== null) {
       const valor_aquis = pm * qtd;
       const real_pct = (1 + variacao_pct) / (1 + ipca) - 1;
@@ -185,7 +194,7 @@ export async function listarAtivosEnriquecidos(db, env) {
 
   const enriquecidos = [];
   for (const a of ativos) {
-    enriquecidos.push(await enriquecerAtivo(a, cache));
+    enriquecidos.push(await enriquecerAtivo(a, cache, db));
   }
   return enriquecidos;
 }
@@ -227,3 +236,4 @@ export function montarDashboard(ativos) {
     atualizado_em: new Date().toISOString()
   };
 }
+
