@@ -5,16 +5,18 @@ do deploy no Cloudflare Pages. Segue o mesmo padrao do Garagem Inteligente e
 Estudo Biblico (ver MEMORY.md em _meta).
 
 ## Estrutura
-- `index.html`, `manifest.json`, `sw.js`, `icon-192.png`, `icon-512.png` — o PWA em si (raiz do site).
-- `functions/` — Cloudflare Pages Functions (API). Vazia por enquanto (Passo 1);
-  Passo 3 do roadmap adiciona as rotas que substituem o Google Apps Script
-  (login com PIN verificado no servidor + leitura/escrita no D1).
+- `index.html`, `styles-v6.css`, `manifest.json`, `sw.js` e ícones — PWA.
+- `functions/` — API do Cloudflare Pages para autenticação, carteira, cotações, histórico e fundamentos.
+- `migrations/` — somente schema e parâmetros genéricos. Dados pessoais nunca entram no Git.
+- `PRODUCT.md` e `DESIGN.md` — contexto de produto e sistema visual.
 
 ## Fluxo de deploy
-1. Editar os arquivos aqui dentro (`deploy/`), nao na raiz do projeto (`Helios_Neo/index.html`
-   e a copia de trabalho local/PWA; espelhar manualmente pra ca quando for publicar).
-2. `git add . && git commit -m "..."` e `git push` (repo ja configurado com o token em `_meta/.git-credentials`).
-3. Cloudflare Pages redeploya sozinho a cada push (conectado ao repo GitHub).
+1. Alterar o código em uma branch e validar interface, API e migrations localmente.
+2. Abrir PR; não publicar dados reais, tokens ou arquivos de credenciais.
+3. Depois do merge, o Cloudflare Pages faz o deploy automaticamente.
 
-## Historico
-- 2026-07-13: repo criado, deploy inicial so com o frontend (ainda sem Functions/D1) — Passo 1 do roadmap de migracao.
+## Segurança operacional
+- `PIN`, `SESSION_SECRET`, chaves externas e dados reais ficam apenas no Cloudflare/D1.
+- O repositório deve permanecer privado enquanto representar uma carteira real.
+- Antes do deploy, aplicar as migrations pendentes e conferir o cache do Service Worker.
+

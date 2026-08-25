@@ -4,7 +4,7 @@ import { checkAuth, unauthorized } from '../_lib/auth.js';
 import { listarAtivosEnriquecidos, gerarIdAtivo, sanitizarAtivoInput } from '../_lib/ativos.js';
 
 export async function onRequestGet({ request, env }) {
-  if (!checkAuth(request, env)) return unauthorized();
+  if (!(await checkAuth(request, env))) return unauthorized();
   try {
     const data = await listarAtivosEnriquecidos(env.DB, env);
     return json({ ok: true, data });
@@ -14,7 +14,7 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  if (!checkAuth(request, env)) return unauthorized();
+  if (!(await checkAuth(request, env))) return unauthorized();
   try {
     const body = await request.json();
     if (!body.nome || !String(body.nome).trim()) {
@@ -44,3 +44,4 @@ export async function onRequestPost({ request, env }) {
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } });
 }
+

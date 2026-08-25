@@ -3,7 +3,7 @@ import { checkAuth, unauthorized } from '../_lib/auth.js';
 import { listarAtivosEnriquecidos, montarDashboard } from '../_lib/ativos.js';
 
 export async function onRequestGet({ request, env }) {
-  if (!checkAuth(request, env)) return unauthorized();
+  if (!(await checkAuth(request, env))) return unauthorized();
   try {
     const ativos = await listarAtivosEnriquecidos(env.DB, env);
     const data = montarDashboard(ativos);
@@ -16,3 +16,4 @@ export async function onRequestGet({ request, env }) {
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } });
 }
+

@@ -4,7 +4,7 @@ import { checkAuth, unauthorized } from '../../_lib/auth.js';
 import { sanitizarAtivoInput } from '../../_lib/ativos.js';
 
 export async function onRequestPut({ request, env, params }) {
-  if (!checkAuth(request, env)) return unauthorized();
+  if (!(await checkAuth(request, env))) return unauthorized();
   const id = params.id;
   try {
     const existente = await env.DB.prepare('SELECT id FROM ativos WHERE id = ?').bind(id).first();
@@ -27,7 +27,7 @@ export async function onRequestPut({ request, env, params }) {
 }
 
 export async function onRequestDelete({ request, env, params }) {
-  if (!checkAuth(request, env)) return unauthorized();
+  if (!(await checkAuth(request, env))) return unauthorized();
   const id = params.id;
   try {
     const existente = await env.DB.prepare('SELECT id FROM ativos WHERE id = ?').bind(id).first();
@@ -43,3 +43,4 @@ export async function onRequestDelete({ request, env, params }) {
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } });
 }
+

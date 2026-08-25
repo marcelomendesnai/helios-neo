@@ -7,7 +7,7 @@ import { obterFundamentosCache, calcularScore } from '../_lib/fundamentos.js';
 import { obterParametrosSetor, gerarLeitura, INDICADORES } from '../_lib/gemini.js';
 
 export async function onRequestGet({ request, env }) {
-  if (!checkAuth(request, env)) return unauthorized();
+  if (!(await checkAuth(request, env))) return unauthorized();
   try {
     const { results } = await env.DB.prepare(
       "SELECT id, nome, ticker_api FROM ativos WHERE ativo = 1 AND classif_4 = 'ACAO' AND ticker_api IS NOT NULL AND ticker_api != ''"
@@ -68,3 +68,4 @@ export async function onRequestGet({ request, env }) {
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } });
 }
+

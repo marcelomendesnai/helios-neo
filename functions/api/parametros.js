@@ -5,7 +5,7 @@ import { checkAuth, unauthorized } from '../_lib/auth.js';
 import { INDICADORES } from '../_lib/gemini.js';
 
 export async function onRequestGet({ request, env }) {
-  if (!checkAuth(request, env)) return unauthorized();
+  if (!(await checkAuth(request, env))) return unauthorized();
   try {
     const { results } = await env.DB.prepare('SELECT * FROM parametros_fundamentos ORDER BY setor, indicador').all();
     return json({ ok: true, data: results || [], indicadores: INDICADORES });
@@ -15,7 +15,7 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPut({ request, env }) {
-  if (!checkAuth(request, env)) return unauthorized();
+  if (!(await checkAuth(request, env))) return unauthorized();
   try {
     const body = await request.json();
     const { setor, indicador } = body;
@@ -25,7 +25,11 @@ export async function onRequestPut({ request, env }) {
     const aplicavel = body.aplicavel ? 1 : 0;
     const verde_limite = body.verde_limite === '' || body.verde_limite === undefined ? null : Number(body.verde_limite);
     const amarelo_limite = body.amarelo_limite === '' || body.amarelo_limite === undefined ? null : Number(body.amarelo_limite);
-    const peso = body.peso ? Number(body.peso) : INDICADORES[indicador].peso;
+    const pesoRecebido = body.peso === '' || body.peso === undefined ? INDICADORES[indicador].peso : Number(body.peso);
+    const peso = Number.isFinite(pesoRecebido) ? Math.min(3, Math.max(1, Math.round(pesoRecebido))) : INDICADORES[indicador].peso;
+    if ((verde_limite !== null && !Number.isFinite(verde_limite)) || (amarelo_limite !== null && !Number.isFinite(amarelo_limite))) {
+      return json({ erro: 'limite_invalido' }, 400);
+    }
     const agora = new Date().toISOString();
 
     await env.DB.prepare(
@@ -49,3 +53,4 @@ export async function onRequestPut({ request, env }) {
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } });
 }
+
