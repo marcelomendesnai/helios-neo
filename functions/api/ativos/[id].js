@@ -22,7 +22,7 @@ export async function onRequestPut({ request, env, params }) {
     await env.DB.prepare(`UPDATE ativos SET ${sets.join(', ')} WHERE id = ?`).bind(...valores).run();
     return json({ ok: true });
   } catch (e) {
-    return json({ erro: e.message }, 500);
+    return json({ erro: e.message, campo: e.campo || null }, e.message === 'valor_numerico_invalido' ? 400 : 500);
   }
 }
 

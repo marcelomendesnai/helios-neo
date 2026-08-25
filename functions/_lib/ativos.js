@@ -26,6 +26,30 @@ export function gerarIdAtivo() {
   return crypto.randomUUID().replace(/-/g, '').slice(0, 8);
 }
 
+// Aceita tanto 31497.73 quanto 31.497,73 / 31497,73 / R$ 31.497,73.
+// O banco continua guardando número canônico; a flexibilidade fica só na entrada.
+export function parseNumeroFlexivel(valor) {
+  if (valor === null || valor === undefined || valor === '') return null;
+  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : null;
+  let s = String(valor).trim();
+  if (!s) return null;
+  const negativoParenteses = /^\(.*\)$/.test(s);
+  s = s.replace(/[()]/g, '').replace(/R\$/gi, '').replace(/\s/g, '').replace(/[^0-9,.-]/g, '');
+  if (!s || s === '-' || s === ',' || s === '.') return null;
+  const ultimaVirgula = s.lastIndexOf(',');
+  const ultimoPonto = s.lastIndexOf('.');
+  if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
+    s = ultimaVirgula > ultimoPonto
+      ? s.replace(/\./g, '').replace(',', '.')
+      : s.replace(/,/g, '');
+  } else if (ultimaVirgula >= 0) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  }
+  const n = Number(s);
+  if (!Number.isFinite(n)) return null;
+  return negativoParenteses ? -Math.abs(n) : n;
+}
+
 // Filtra o body pra só os campos permitidos + normaliza tipos (D1 é chato
 // com undefined — vira null; número vazio vira null; calc_real vira 0/1).
 export function sanitizarAtivoInput(body) {
@@ -35,8 +59,23 @@ export function sanitizarAtivoInput(body) {
     let v = body[campo];
     if (v === '' || v === undefined) v = null;
     if (campo === 'qtd' || campo === 'preco_medio') {
-      v = v === null ? null : Number(v);
-      if (v !== null && !Number.isFinite(v)) v = null;
+      const original = v;
+      v = parseNumeroFlexivel(v);
+      if (original !== null && v === null) {
+        const erro = new Error('valor_numerico_invalido');
+        erro.campo = campo;
+        throw erro;
+      }
+    }
+    if (campo === 'preco_atual_manual' && v !== null && String(v).trim().toUpperCase() !== 'ATUALIZAR') {
+      const original = v;
+      v = parseNumeroFlexivel(v);
+      if (v === null) {
+        const erro = new Error('valor_numerico_invalido');
+        erro.campo = campo;
+        erro.valor = original;
+        throw erro;
+      }
     }
     if (campo === 'calc_real') {
       v = (v === true || v === 1 || v === '1') ? 1 : 0;
@@ -138,16 +177,16 @@ async function ipcaAcumulado(db, dataAquis) {
 async function enriquecerAtivo(a, cache, db) {
   const cotacaoAuto = a.ticker_api ? cache[a.ticker_api] : null;
   const manualStr = a.preco_atual_manual === null || a.preco_atual_manual === undefined ? '' : String(a.preco_atual_manual).trim();
-  const manualNum = Number(manualStr);
-  const manualValido = manualStr !== '' && manualStr.toUpperCase() !== 'ATUALIZAR' && !isNaN(manualNum);
+  const manualNum = parseNumeroFlexivel(manualStr);
+  const manualValido = manualStr !== '' && manualStr.toUpperCase() !== 'ATUALIZAR' && Number.isFinite(manualNum);
 
   const precoAtual = cotacaoAuto !== null && cotacaoAuto !== undefined
     ? cotacaoAuto
     : (manualValido ? manualNum : null);
 
-  const pmNum = Number(a.preco_medio);
+  const pmNum = parseNumeroFlexivel(a.preco_medio);
   const pm = Number.isFinite(pmNum) ? pmNum : 0;
-  const qtdNum = Number(a.qtd);
+  const qtdNum = parseNumeroFlexivel(a.qtd);
   const qtd = a.qtd === null || a.qtd === undefined || a.qtd === '' ? 1 : (Number.isFinite(qtdNum) ? qtdNum : 0);
   const total_atual = precoAtual !== null ? precoAtual * qtd : 0;
   const variacao_pct = pm > 0 && precoAtual !== null ? (precoAtual - pm) / pm : null;

@@ -1303,10 +1303,30 @@
 
         <div class="chips-scroll" id="chips-c1"></div>
 
+        <div class="asset-filter-panel" aria-label="Filtros da carteira">
+          <label>
+            <span>Categoria</span>
+            <select id="filter-c2"><option value="">Todas</option></select>
+          </label>
+          <label>
+            <span>Instituição</span>
+            <select id="filter-c3"><option value="">Todas</option></select>
+          </label>
+          <label>
+            <span>Preço</span>
+            <select id="filter-fonte">
+              <option value="">Todos</option>
+              <option value="api">Automático</option>
+              <option value="manual">Manual</option>
+            </select>
+          </label>
+          <button class="filter-clear" id="clear-asset-filters" type="button">Limpar filtros</button>
+        </div>
+
         <div class="toolbar-row2">
           <div class="viz-toggle" id="viz-toggle-ativos">
-            <button data-mode="hier" class="active">Hierarquia</button>
-            <button data-mode="lista">Lista</button>
+            <button data-mode="hier">Hierarquia</button>
+            <button data-mode="lista" class="active">Lista</button>
             <button data-mode="compacto">Cards</button>
           </div>
           <select id="sort-ativos" class="sorter">
@@ -1316,6 +1336,14 @@
             <option value="var-asc">Var % ↑</option>
             <option value="nome-asc">Nome A-Z</option>
           </select>
+        </div>
+
+        <div class="selection-bar" id="asset-selection-bar" hidden>
+          <div><strong id="asset-selection-count">0 selecionados</strong><span id="asset-selection-value" class="num"></span></div>
+          <div class="selection-actions">
+            <button id="export-selected-assets" type="button">Exportar CSV</button>
+            <button id="clear-selected-assets" type="button">Limpar seleção</button>
+          </div>
         </div>
 
         <div id="ativos-list"></div>
@@ -1339,7 +1367,13 @@
            Endividamento do Grupo Marcolan que o Marcelo validou como
            referencia de qualidade. Ver CONTEXTO_ATUAL.md. ============== -->
       <div class="view" data-view="historico">
-        <div class="section-title"><span>Histórico</span></div>
+        <div class="history-heading">
+          <div>
+            <div class="section-title"><span>Evolução patrimonial</span></div>
+            <p>Fotografia automática mensal, comparada ao IPCA oficial.</p>
+          </div>
+          <span class="snapshot-status" id="snapshot-status">Foto mensal automática</span>
+        </div>
         <div class="chips-scroll" id="chips-periodo">
           <button class="chip active" data-p="todo">Tudo</button>
           <button class="chip" data-p="12">12m</button>
@@ -1353,11 +1387,27 @@
           <div style="margin-top:6px;color:var(--text-5);font-size:11px;">O primeiro snapshot roda no dia 1 de cada mes.</div>
         </div>
         <div id="historico-conteudo" style="display:none;">
+          <div class="history-kpis" id="history-kpis"></div>
           <div class="line-chart-box" id="hist-card-liquido">
-            <div class="hist-card-title">Patrimônio líquido</div>
+            <div class="hist-card-title-row">
+              <div>
+                <div class="hist-card-title">Patrimônio x inflação</div>
+                <div class="hist-card-subtitle">Índice base 100 para comparar trajetórias</div>
+              </div>
+              <div class="legend-line"><span><i style="background:var(--accent)"></i>Patrimônio</span><span><i style="background:var(--blue)"></i>IPCA</span></div>
+            </div>
             <svg id="hist-svg-liquido"></svg>
             <div class="hist-nota" id="hist-nota-liquido"></div>
             <div class="hist-stats" id="hist-stats"></div>
+          </div>
+          <div class="monthly-ledger">
+            <div class="hist-card-title-row">
+              <div>
+                <div class="hist-card-title">Fechamento mês a mês</div>
+                <div class="hist-card-subtitle">Nominal, inflação e ganho real em uma leitura</div>
+              </div>
+            </div>
+            <div id="monthly-ledger-list"></div>
           </div>
           <div class="line-chart-box" id="hist-card-categoria" style="margin-top:12px;">
             <div class="hist-card-title-row">
@@ -1464,7 +1514,7 @@
     // Se estiver no meio de várias correções rápidas e precisar ver a última
     // versão AGORA (sem esperar fechar), avisar o Marcelo pra dar hard-reload
     // ou limpar o cache do SW manualmente em vez de forçar um bump por push.
-    const APP_VERSION = 'v6.0.0';
+    const APP_VERSION = 'v6.1.0';
     console.log('[Helios Neo] build ' + APP_VERSION);
     document.querySelectorAll('.build-tag').forEach((el) => { el.textContent = APP_VERSION; });
 
@@ -1561,9 +1611,13 @@
       view: 'home',
       alvoPercentuais: loadAlvo(),
       alocacaoViz: 'donut',
-      ativosMode: 'hier',
+      ativosMode: 'lista',
       ativosSort: 'valor-desc',
       ativosChip: '',
+      ativosFilterC2: '',
+      ativosFilterC3: '',
+      ativosFilterFonte: '',
+      ativosSelecionados: new Set(),
       historicoPeriodo: 'todo',
       fundamentos: [],
       fundamentosLoaded: false,
@@ -1729,6 +1783,7 @@
       renderInsights();
       renderTopMovers();
       renderChipsC1();
+      renderAtivosFiltros();
       renderAtivosView();
       renderPassivos();
       renderHistorico();
@@ -2130,6 +2185,21 @@
       });
     }
 
+    function renderAtivosFiltros() {
+      const preencher = (id, campo, selecionado) => {
+        const el = $(id);
+        const valores = [...new Set(state.ativos.map((a) => a[campo]).filter(Boolean))]
+          .sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
+        const primeiro = id === 'filter-c2' ? 'Todas as categorias' : 'Todas as instituições';
+        el.innerHTML = `<option value="">${primeiro}</option>` + valores.map((v) =>
+          `<option value="${escAttr(v)}" ${v === selecionado ? 'selected' : ''}>${safeLabel(v)}</option>`
+        ).join('');
+      };
+      preencher('filter-c2', 'classif_2', state.ativosFilterC2);
+      preencher('filter-c3', 'classif_3', state.ativosFilterC3);
+      $('filter-fonte').value = state.ativosFilterFonte;
+    }
+
     function filteredAtivos() {
       const termo = ($('search-ativos').value || '').toLowerCase().trim();
       return state.ativos.filter(a => {
@@ -2138,6 +2208,9 @@
         if (termo && !(a.nome || '').toLowerCase().includes(termo) &&
             !(a.ticker_api || '').toLowerCase().includes(termo)) return false;
         if (state.ativosChip && a.classif_1 !== state.ativosChip) return false;
+        if (state.ativosFilterC2 && a.classif_2 !== state.ativosFilterC2) return false;
+        if (state.ativosFilterC3 && a.classif_3 !== state.ativosFilterC3) return false;
+        if (state.ativosFilterFonte && a.preco_atual_fonte !== state.ativosFilterFonte) return false;
         return true;
       });
     }
@@ -2155,6 +2228,9 @@
 
     function renderAtivosView() {
       const lista = filteredAtivos();
+      const idsAtuais = new Set(state.ativos.map((a) => a.id));
+      state.ativosSelecionados.forEach((id) => { if (!idsAtuais.has(id)) state.ativosSelecionados.delete(id); });
+      renderSelectionBar();
       if (!lista.length) {
         $('ativos-list').innerHTML = `<div class="empty"><div class="ico">${ICONS.ban}</div>Nenhum ativo encontrado</div>`;
         return;
@@ -2277,28 +2353,65 @@
     }
 
     function renderAtivosLista(lista) {
-      const html = `<div class="card">${lista.map(a => {
+      const todosSelecionados = lista.length > 0 && lista.every((a) => state.ativosSelecionados.has(a.id));
+      const html = `<div class="asset-table-wrap"><table class="asset-table">
+        <thead><tr>
+          <th class="check"><input type="checkbox" id="select-visible-assets" aria-label="Selecionar ativos visíveis" ${todosSelecionados ? 'checked' : ''}></th>
+          <th>Ativo</th><th>Categoria</th><th class="right">Quantidade</th><th class="right">Preço</th><th class="right">Valor</th><th class="right">Variação</th>
+        </tr></thead><tbody>${lista.map(a => {
         const v = pctEfetivo(a);
         const vc = (v == null || v === 0) ? 'zero' : (v > 0 ? 'pos' : 'neg');
+        const checked = state.ativosSelecionados.has(a.id);
         return `
-          <div class="ativo-item" data-ativo-id="${a.id}">
-            <div class="left">
-              <div class="ico-wrap">${iconForClasse(a.classif_1)}</div>
-              <div class="info">
-                <div class="nome">${badgesHtml(a)}${escHtml(a.nome)}</div>
-                <div class="classif">${safeLabel([a.classif_1, a.classif_2].filter(Boolean).join(' › '))}</div>
-              </div>
-            </div>
-            <div class="right">
-              <div class="valor num">${show(a.total_atual)}</div>
-              <div class="var ${vc} num">${fmtPctMarcado(a)}</div>
-            </div>
-          </div>`;
-      }).join('')}</div>`;
+          <tr class="asset-row ${checked ? 'selected' : ''}" data-ativo-id="${escAttr(a.id)}">
+            <td class="check"><input type="checkbox" class="asset-check" aria-label="Selecionar ${escAttr(a.nome)}" ${checked ? 'checked' : ''}></td>
+            <td data-label="Ativo"><div class="asset-name"><span class="ico-wrap">${iconForClasse(a.classif_1)}</span><span><strong>${escHtml(a.nome)}</strong><small>${badgesHtml(a)}${escHtml(a.ticker_api || 'Sem ticker')}</small></span></div></td>
+            <td data-label="Categoria"><strong>${safeLabel(a.classif_2 || '—')}</strong><small>${safeLabel(a.classif_3 || '—')}</small></td>
+            <td class="right num" data-label="Quantidade">${Number(a.qtd ?? 1).toLocaleString('pt-BR')}</td>
+            <td class="right num" data-label="Preço">${a.preco_atual == null ? '—' : show(a.preco_atual)}</td>
+            <td class="right num asset-total" data-label="Valor">${show(a.total_atual)}</td>
+            <td class="right num var ${vc}" data-label="Variação">${v == null ? '—' : fmtPctMarcado(a)}</td>
+          </tr>`;
+      }).join('')}</tbody></table></div>`;
       $('ativos-list').innerHTML = html;
-      $('ativos-list').querySelectorAll('.ativo-item').forEach(el => {
-        el.addEventListener('click', () => openModal(state.ativos.find(x => x.id === el.dataset.ativoId)));
+      $('select-visible-assets').addEventListener('change', (e) => {
+        lista.forEach((a) => e.target.checked ? state.ativosSelecionados.add(a.id) : state.ativosSelecionados.delete(a.id));
+        renderAtivosView();
       });
+      $('ativos-list').querySelectorAll('.asset-row').forEach(el => {
+        el.addEventListener('click', (e) => {
+          const id = el.dataset.ativoId;
+          if (e.target.closest('.asset-check')) {
+            e.stopPropagation();
+            e.target.checked ? state.ativosSelecionados.add(id) : state.ativosSelecionados.delete(id);
+            renderAtivosView();
+            return;
+          }
+          openModal(state.ativos.find(x => x.id === id));
+        });
+      });
+    }
+
+    function renderSelectionBar() {
+      const selecionados = state.ativos.filter((a) => state.ativosSelecionados.has(a.id));
+      const bar = $('asset-selection-bar');
+      bar.hidden = selecionados.length === 0;
+      if (!selecionados.length) return;
+      $('asset-selection-count').textContent = `${selecionados.length} selecionado${selecionados.length > 1 ? 's' : ''}`;
+      $('asset-selection-value').textContent = show(selecionados.reduce((s, a) => s + (a.total_atual || 0), 0));
+    }
+
+    function exportarAtivosSelecionados() {
+      const selecionados = state.ativos.filter((a) => state.ativosSelecionados.has(a.id));
+      if (!selecionados.length) return;
+      const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const linhas = [['Ativo','Ticker','Classe','Categoria','Instituição','Quantidade','Preço atual','Valor total']]
+        .concat(selecionados.map((a) => [a.nome,a.ticker_api,a.classif_1,a.classif_2,a.classif_3,a.qtd,a.preco_atual,a.total_atual]));
+      const csv = '\ufeff' + linhas.map((l) => l.map(csvCell).join(';')).join('\n');
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      const link = document.createElement('a');
+      link.href = url; link.download = 'helios-ativos-selecionados.csv'; link.click();
+      URL.revokeObjectURL(url);
     }
 
     function renderAtivosCompacto(lista) {
@@ -2512,6 +2625,66 @@
 
     const HIST_PALETA_CATEGORIA = ['var(--cyan)', 'var(--amber)', 'var(--purple)', 'var(--green)', 'var(--red)'];
 
+    function comparacoesMensais(snaps) {
+      return snaps.slice(1).map((atual, i) => {
+        const anterior = snaps[i];
+        const nominal = (atual.total_liquido - anterior.total_liquido) / (anterior.total_liquido || 1);
+        const ipca = atual.ipca_periodo == null ? null : Number(atual.ipca_periodo);
+        const real = ipca == null ? null : (1 + nominal) / (1 + ipca) - 1;
+        return { atual, anterior, nominal, ipca, real, delta: atual.total_liquido - anterior.total_liquido };
+      });
+    }
+
+    function renderHistoryIndexChart(snaps) {
+      const svg = $('hist-svg-liquido');
+      const rect = svg.getBoundingClientRect();
+      const W = Math.round(rect.width) || 700, H = Math.round(rect.height) || 250;
+      const padL = 40, padR = 14, padT = 28, padB = 24;
+      const base = snaps[0].total_liquido || 1;
+      const patrimonio = snaps.map((s) => s.total_liquido / base * 100);
+      const inflacao = [100];
+      for (let i = 1; i < snaps.length; i += 1) {
+        const taxa = snaps[i].ipca_periodo;
+        inflacao.push(taxa == null || inflacao[i - 1] == null ? null : inflacao[i - 1] * (1 + Number(taxa)));
+      }
+      const finitos = patrimonio.concat(inflacao).filter(Number.isFinite);
+      const ticks = niceTicks(Math.min(...finitos), Math.max(...finitos), 4);
+      const lo = ticks[0], hi = ticks[ticks.length - 1];
+      const x = (i) => padL + (W - padL - padR) * i / Math.max(1, snaps.length - 1);
+      const y = (v) => padT + (H - padT - padB) * (1 - (v - lo) / ((hi - lo) || 1));
+      let out = '';
+      ticks.forEach((v) => {
+        const yy = y(v);
+        out += `<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="var(--bg-3)" stroke-dasharray="3,3"/>`;
+        out += `<text x="${padL-7}" y="${yy+3}" text-anchor="end" font-size="9" fill="var(--text-4)">${v.toLocaleString('pt-BR',{maximumFractionDigits:1})}</text>`;
+      });
+      const desenhar = (valores, cor) => {
+        const pontos = valores.map((v, i) => Number.isFinite(v) ? { v, i, x: x(i), y: y(v) } : null).filter(Boolean);
+        if (!pontos.length) return;
+        out += `<path d="${pontos.map((p,i)=>(i?'L':'M')+p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="${cor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+        pontos.forEach((p) => { out += `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${cor}" stroke="var(--bg-1)" stroke-width="2"/>`; });
+      };
+      desenhar(patrimonio, 'var(--accent)');
+      desenhar(inflacao, 'var(--blue)');
+      snaps.forEach((s, i) => { out += `<text x="${x(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--text-4)">${histMesLabel(s.data)}</text>`; });
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      svg.innerHTML = out;
+    }
+
+    function renderMonthlyLedger(comparacoes) {
+      const wrap = $('monthly-ledger-list');
+      wrap.innerHTML = [...comparacoes].reverse().map((m) => {
+        const realClass = m.real == null ? '' : (m.real >= 0 ? 'pos' : 'neg');
+        return `<div class="month-row">
+          <div class="month-main"><strong>${histMesLabel(m.atual.data)} <span>${String(m.atual.data).slice(0,4)}</span></strong><small>${showC(m.atual.total_liquido)}</small></div>
+          <div class="month-metric"><span>Patrimônio</span><strong class="num ${m.nominal >= 0 ? 'pos' : 'neg'}">${fmtPct(m.nominal, 2)}</strong></div>
+          <div class="month-metric"><span>IPCA</span><strong class="num">${m.ipca == null ? 'Aguardando' : fmtPct(m.ipca, 2)}</strong></div>
+          <div class="month-metric"><span>Ganho real</span><strong class="num ${realClass}">${m.real == null ? '—' : fmtPct(m.real, 2)}</strong></div>
+          <div class="month-delta num ${m.delta >= 0 ? 'pos' : 'neg'}">${m.delta >= 0 ? '+' : '−'} ${showC(Math.abs(m.delta))}</div>
+        </div>`;
+      }).join('');
+    }
+
     function renderHistorico() {
       let snaps = (state.snapshots || []).filter(s => s.total_liquido != null).sort((a, b) => (a.data + '').localeCompare(b.data + ''));
       const totalSnaps = snaps.length;
@@ -2549,6 +2722,13 @@
       $('historico-empty').style.display = 'none';
       $('historico-conteudo').style.display = 'block';
 
+      const comparacoes = comparacoesMensais(snaps);
+      const ultimoMes = comparacoes[comparacoes.length - 1];
+      const ultimoSnap = snaps[snaps.length - 1];
+      $('snapshot-status').textContent = ultimoSnap.origem === 'automatico'
+        ? `Foto automática em ${new Date(ultimoSnap.capturado_em || ultimoSnap.data).toLocaleDateString('pt-BR')}`
+        : `Última foto: ${new Date(String(ultimoSnap.data) + 'T12:00:00').toLocaleDateString('pt-BR')}`;
+
       // Aviso "início de histórico": com poucos pontos (snapshot é mensal),
       // o gráfico fica naturalmente esparso — isso não é bug, é avisado.
       if (totalSnaps < 4) {
@@ -2558,19 +2738,33 @@
         $('historico-pouco-dado').style.display = 'none';
       }
 
-      const labels = snaps.map(s => histMesLabel(s.data));
+      // Resumo do mês mais recente.
+      $('history-kpis').innerHTML = `
+        <div class="history-kpi"><span>Patrimônio no mês</span><strong class="num ${ultimoMes.nominal >= 0 ? 'pos' : 'neg'}">${fmtPct(ultimoMes.nominal, 2)}</strong><small>${ultimoMes.delta >= 0 ? 'cresceu' : 'recuou'} ${showC(Math.abs(ultimoMes.delta))}</small></div>
+        <div class="history-kpi"><span>IPCA do período</span><strong class="num">${ultimoMes.ipca == null ? '—' : fmtPct(ultimoMes.ipca, 2)}</strong><small>${ultimoMes.ipca == null ? 'aguardando divulgação oficial' : 'inflação acumulada no intervalo'}</small></div>
+        <div class="history-kpi featured"><span>Ganho real</span><strong class="num ${ultimoMes.real == null ? '' : (ultimoMes.real >= 0 ? 'pos' : 'neg')}">${ultimoMes.real == null ? '—' : fmtPct(ultimoMes.real, 2)}</strong><small>${ultimoMes.real == null ? 'disponível após o IPCA' : (ultimoMes.real >= 0 ? 'acima da inflação' : 'abaixo da inflação')}</small></div>`;
 
-      // --- Card 1: Patrimônio líquido (linha única, sempre) ---
+      // Índice base 100 permite comparar dinheiro e inflação na mesma escala.
       const valsLiquido = snaps.map(s => s.total_liquido);
-      renderHistChart('hist-svg-liquido', snaps, [{ data: valsLiquido, labels, color: 'var(--blue)' }]);
-      $('hist-nota-liquido').innerHTML = notaLiquido(valsLiquido);
+      renderHistoryIndexChart(snaps);
+      $('hist-nota-liquido').innerHTML = ultimoMes.ipca == null
+        ? `Em <b>${histMesLabel(ultimoMes.atual.data)}</b>, o patrimônio variou <b>${fmtPct(ultimoMes.nominal, 2)}</b>. O ganho real aparecerá assim que o IPCA oficial do período estiver disponível.`
+        : `Em <b>${histMesLabel(ultimoMes.atual.data)}</b>, o patrimônio variou <b>${fmtPct(ultimoMes.nominal, 2)}</b>, contra IPCA de <b>${fmtPct(ultimoMes.ipca, 2)}</b>. Resultado real: <b>${fmtPct(ultimoMes.real, 2)}</b>.`;
       const primeiro = valsLiquido[0], ultimo = valsLiquido[valsLiquido.length - 1];
       const deltaPct = (ultimo - primeiro) / (primeiro || 1);
+      const ipcas = snaps.slice(1).map((s) => s.ipca_periodo);
+      const ipcaCompleto = ipcas.length && ipcas.every((v) => v != null);
+      const ipcaAcumulado = ipcaCompleto ? ipcas.reduce((acc, v) => acc * (1 + Number(v)), 1) - 1 : null;
+      const realPeriodo = ipcaAcumulado == null ? null : (1 + deltaPct) / (1 + ipcaAcumulado) - 1;
       $('hist-stats').innerHTML = `
         <div class="cell"><div class="l">Início</div><div class="v num">${showC(primeiro)}</div></div>
         <div class="cell"><div class="l">Atual</div><div class="v num">${showC(ultimo)}</div></div>
-        <div class="cell"><div class="l">Variação</div><div class="v num ${deltaPct > 0 ? 'pos' : (deltaPct < 0 ? 'neg' : '')}">${fmtPct(deltaPct, 1)}</div></div>
+        <div class="cell"><div class="l">Nominal no período</div><div class="v num ${deltaPct > 0 ? 'pos' : (deltaPct < 0 ? 'neg' : '')}">${fmtPct(deltaPct, 1)}</div></div>
+        <div class="cell"><div class="l">Real no período</div><div class="v num ${realPeriodo == null ? '' : (realPeriodo >= 0 ? 'pos' : 'neg')}">${realPeriodo == null ? '—' : fmtPct(realPeriodo, 1)}</div></div>
       `;
+      renderMonthlyLedger(comparacoes);
+
+      const labels = snaps.map(s => histMesLabel(s.data));
 
       // --- Card 2: Composição por categoria (dinâmico — não hardcoded pra
       // "Ativos Reais"/"Financeiro", pega o que existir em por_classif1) ---
@@ -2856,15 +3050,16 @@
           </div>
           <div class="field">
             <label>Quantidade</label>
-            <input type="number" step="any" id="ef-qtd" value="${v.qtd ?? ''}">
+            <input type="text" inputmode="decimal" id="ef-qtd" value="${v.qtd ?? ''}" placeholder="Ex.: 10 ou 10,5">
           </div>
           <div class="field">
             <label>Preço médio (compra)</label>
-            <input type="number" step="any" id="ef-pm" value="${v.preco_medio ?? ''}">
+            <input type="text" inputmode="decimal" id="ef-pm" value="${v.preco_medio ?? ''}" placeholder="Ex.: 31.497,73">
           </div>
           <div class="field">
             <label>Valor/preço atual manual</label>
-            <input type="text" id="ef-manual" value="${escAttr(v.preco_atual_manual)}" placeholder="Número, ou 'ATUALIZAR' se pendente">
+            <input type="text" inputmode="decimal" id="ef-manual" value="${escAttr(v.preco_atual_manual)}" placeholder="Ex.: R$ 31.497,73">
+            <small class="field-hint">Aceita vírgula, ponto, separador de milhar e R$.</small>
           </div>
           <div class="field">
             <label>Data de aquisição</label>
@@ -2931,7 +3126,10 @@
         });
         if (r.status === 401) { $('app').style.display = 'none'; $('login-screen').style.display = 'flex'; return; }
         const j = await r.json().catch(() => ({}));
-        if (!r.ok || j.erro) throw new Error(j.erro || ('HTTP ' + r.status));
+        if (!r.ok || j.erro) {
+          const campoLabel = { qtd: 'Quantidade', preco_medio: 'Preço médio', preco_atual_manual: 'Valor atual' }[j.campo] || 'Valor';
+          throw new Error(j.erro === 'valor_numerico_invalido' ? `${campoLabel} inválido. Use, por exemplo, 31.497,73.` : (j.erro || ('HTTP ' + r.status)));
+        }
         closeModal();
         toast(id ? 'Ativo atualizado.' : 'Ativo criado.');
         await load();
@@ -3269,6 +3467,16 @@
     });
 
     $('search-ativos').addEventListener('input', renderAtivosView);
+    $('filter-c2').addEventListener('change', () => { state.ativosFilterC2 = $('filter-c2').value; renderAtivosView(); });
+    $('filter-c3').addEventListener('change', () => { state.ativosFilterC3 = $('filter-c3').value; renderAtivosView(); });
+    $('filter-fonte').addEventListener('change', () => { state.ativosFilterFonte = $('filter-fonte').value; renderAtivosView(); });
+    $('clear-asset-filters').addEventListener('click', () => {
+      state.ativosFilterC2 = ''; state.ativosFilterC3 = ''; state.ativosFilterFonte = ''; state.ativosChip = '';
+      $('search-ativos').value = '';
+      renderChipsC1(); renderAtivosFiltros(); renderAtivosView();
+    });
+    $('clear-selected-assets').addEventListener('click', () => { state.ativosSelecionados.clear(); renderAtivosView(); });
+    $('export-selected-assets').addEventListener('click', exportarAtivosSelecionados);
 
     // SW: só registra em ambiente real (não em preview/sandbox do Claude).
     // Evita erro 404 quando o app é servido de domínios onde sw.js não existe.
