@@ -14,6 +14,19 @@ export async function onRequestPost({ request, env }) {
   if (!env.PIN) return json({ erro: 'pin_nao_configurado_no_servidor' }, 500);
   if (!env.SESSION_SECRET) return json({ erro: 'session_secret_nao_configurado' }, 500);
 
+  // Mantém o deploy compatível com bancos criados antes da migration v6.
+  // A migration continua sendo a fonte canônica, mas o primeiro login não quebra
+  // se o Pages publicar o código alguns segundos antes da aplicação do schema.
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS login_attempts (
+      ip_hash TEXT PRIMARY KEY,
+      falhas INTEGER NOT NULL DEFAULT 0,
+      janela_inicio INTEGER NOT NULL,
+      bloqueado_ate INTEGER NOT NULL DEFAULT 0,
+      atualizado_em TEXT NOT NULL
+    )`
+  ).run();
+
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   const ipKey = await hashIdentifier(ip, env.SESSION_SECRET);
   const agora = Math.floor(Date.now() / 1000);

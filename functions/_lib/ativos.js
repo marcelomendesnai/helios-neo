@@ -181,6 +181,16 @@ async function enriquecerAtivo(a, cache, db) {
 }
 
 export async function listarAtivosEnriquecidos(db, env) {
+  // Autocura para deploys em que o código chega antes da migration v6.
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS ipca_cache (
+      data_inicial TEXT NOT NULL,
+      data_referencia TEXT NOT NULL,
+      taxa REAL NOT NULL,
+      atualizado_em TEXT NOT NULL,
+      PRIMARY KEY (data_inicial, data_referencia)
+    )`
+  ).run();
   const hoje = hojeStr();
   const { results } = await db.prepare('SELECT * FROM ativos WHERE ativo = 1').all();
   const ativos = results || [];
