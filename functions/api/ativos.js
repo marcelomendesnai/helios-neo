@@ -9,7 +9,7 @@ export async function onRequestGet({ request, env }) {
     const data = await listarAtivosEnriquecidos(env.DB, env);
     return json({ ok: true, data });
   } catch (e) {
-    return json({ erro: e.message }, 500);
+    return json({ erro: e.message, campo: e.campo || null }, e.message === 'valor_numerico_invalido' ? 400 : 500);
   }
 }
 
@@ -37,7 +37,7 @@ export async function onRequestPost({ request, env }) {
     ).run();
     return json({ ok: true, id });
   } catch (e) {
-    return json({ erro: e.message }, 500);
+    return json({ erro: e.message, campo: e.campo || null }, e.message === 'valor_numerico_invalido' ? 400 : 500);
   }
 }
 
