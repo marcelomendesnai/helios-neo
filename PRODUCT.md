@@ -14,6 +14,7 @@ Proprietário de uma carteira pessoal que precisa enxergar posição líquida, c
 - Identificar concentração, dívida, perdas e dados que precisam de atualização.
 - Abrir qualquer ativo, conferir sua origem e editá-lo com segurança.
 - Comparar alocação atual, alvo e histórico.
+- Copiar um snapshot legível da carteira para conversar com um GPT sem incluir credenciais ou detalhes técnicos sensíveis.
 
 ## Product principles
 - Privacidade é parte do produto, não um modo cosmético.

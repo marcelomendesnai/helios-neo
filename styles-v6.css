@@ -141,7 +141,7 @@ header.topbar {
   border-bottom-color: var(--border);
   backdrop-filter: blur(18px) saturate(120%);
 }
-header.topbar .brand { gap: 11px; letter-spacing: 0; }
+header.topbar .brand { flex: 1; min-width: 0; gap: 11px; letter-spacing: 0; }
 header.topbar .brand .dot { display: none; }
 .brand-mark {
   display: grid;
@@ -154,11 +154,12 @@ header.topbar .brand .dot { display: none; }
   font-size: 9px;
 }
 .brand-mark::after { content: '●'; }
-.brand-copy { display: flex; flex-direction: column; min-width: 0; }
+.brand-copy { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .brand-copy strong { color: var(--text-1); font-size: 13px; font-weight: 650; line-height: 1.25; }
-.brand-copy small { color: var(--text-4); font-size: 9px; font-weight: 500; letter-spacing: .02em; white-space: nowrap; }
+.brand-copy small { overflow: hidden; color: var(--text-4); font-size: 9px; font-weight: 500; letter-spacing: .02em; white-space: nowrap; text-overflow: ellipsis; }
 #sync-status { color: var(--text-3); }
 header.topbar .build-tag { align-self: flex-start; color: var(--text-5); font-size: 8px; }
+header.topbar .actions { flex-shrink: 0; }
 header.topbar button.icon-btn {
   width: 42px;
   height: 42px;
@@ -168,6 +169,14 @@ header.topbar button.icon-btn {
 }
 header.topbar button.icon-btn:hover { background: var(--bg-2); color: var(--text-1); border-color: var(--border); }
 header.topbar button.icon-btn:active { background: var(--bg-3); transform: scale(.97); }
+header.topbar button.icon-btn.copied { color: var(--accent); background: var(--accent-bg); border-color: rgba(232,198,106,.34); }
+
+/* Quatro ações cabem no header de 375 px sem reduzir a área de toque dos botões. */
+@media (max-width: 479px) {
+  header.topbar { padding-right: 10px; padding-left: 12px; }
+  header.topbar .actions { gap: 2px; }
+  header.topbar .build-tag { display: none; }
+}
 
 main { padding-top: 22px; }
 .view { animation: viewEnter .2s ease-out; }

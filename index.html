@@ -1197,6 +1197,7 @@
         <span class="build-tag" id="build-tag-app"></span>
       </div>
       <div class="actions">
+        <button id="btn-copy-contexto" class="icon-btn" title="Copiar contexto da carteira" aria-label="Copiar contexto da carteira"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
         <button id="btn-camuflagem" class="icon-btn" title="Ocultar valores" aria-label="Ocultar valores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
         <button id="btn-refresh" class="icon-btn" title="Atualizar dados" aria-label="Atualizar dados"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg></button>
         <button id="btn-logout" class="icon-btn" title="Sair" aria-label="Encerrar sessão"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
@@ -1498,6 +1499,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <script src="context-export.js"></script>
   <script>
     // ==================== CONFIG ====================
     // Migrado 2026-07-19: antes API_URL/TOKEN/SENHA ficavam expostos aqui em texto puro
@@ -1514,7 +1516,7 @@
     // Se estiver no meio de várias correções rápidas e precisar ver a última
     // versão AGORA (sem esperar fechar), avisar o Marcelo pra dar hard-reload
     // ou limpar o cache do SW manualmente em vez de forçar um bump por push.
-    const APP_VERSION = 'v6.1.0';
+    const APP_VERSION = 'v6.2.0';
     console.log('[Helios Neo] build ' + APP_VERSION);
     document.querySelectorAll('.build-tag').forEach((el) => { el.textContent = APP_VERSION; });
 
@@ -3384,6 +3386,52 @@
     }
 
     // ==================== ACOES ====================
+    // Exportação explícita por whitelist: o contexto usa somente os campos
+    // financeiros selecionados em context-export.js. Cookies HttpOnly, PIN,
+    // tokens, URLs internas e payloads técnicos nunca entram no texto copiado.
+    $('btn-copy-contexto').addEventListener('click', async () => {
+      const btn = $('btn-copy-contexto');
+      const originalHtml = btn.innerHTML;
+      if (!state.dashboard) {
+        toast('Os dados da carteira ainda estão carregando.', 3500, true);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      try {
+        const contexto = HeliosContextExport.buildContext({
+          dashboard: state.dashboard,
+          ativos: state.ativos,
+          snapshots: state.snapshots,
+          alvoPercentuais: state.alvoPercentuais,
+          fundamentos: state.fundamentos,
+          fundamentosLoaded: state.fundamentosLoaded,
+          indicadoresMeta: state.indicadoresMeta,
+          parametros: state.parametros,
+          parametrosLoaded: state.parametrosLoaded,
+          version: APP_VERSION,
+          generatedAt: new Date()
+        });
+        await HeliosContextExport.copyText(contexto);
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m20 6-11 11-5-5"/></svg>';
+        btn.setAttribute('aria-label', 'Contexto copiado');
+        toast('Contexto completo copiado. Agora é só colar no GPT.', 3500);
+      } catch (e) {
+        console.warn('[Helios] cópia do contexto falhou:', e.message);
+        toast('Não foi possível copiar. Tente novamente.', 4000, true);
+      } finally {
+        btn.removeAttribute('aria-busy');
+        window.setTimeout(() => {
+          btn.disabled = false;
+          btn.classList.remove('copied');
+          btn.innerHTML = originalHtml;
+          btn.setAttribute('aria-label', 'Copiar contexto da carteira');
+        }, 1800);
+      }
+    });
+
     $('btn-camuflagem').addEventListener('click', () => {
       state.camuflado = !state.camuflado;
       renderAll();
